@@ -9,7 +9,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o resume-generator
+RUN CGO_ENABLED=0 go build -o yaml-encrypter-decrypter
 
 FROM alpine:latest
 
