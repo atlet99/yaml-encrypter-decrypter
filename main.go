@@ -1,13 +1,13 @@
 package main
 
 import (
-	"atlet99/yaml-encrypter-decrypter/encryption"
 	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"yaml-encrypter-decrypter/encryption"
 )
 
 const AES = "AES256:"
@@ -49,9 +49,17 @@ func main() {
 // handleValue processes a single value for encryption or decryption based on the flag provided
 func handleValue(flagKey, flagOperation, flagValue *string) {
 	if strings.HasPrefix(*flagValue, AES) {
-		fmt.Println(encryption.Decrypt(*flagKey, strings.TrimPrefix(*flagValue, AES)))
+		decryptedValue, err := encryption.Decrypt(*flagKey, strings.TrimPrefix(*flagValue, AES))
+		if err != nil {
+			log.Fatalf("Error decrypting value: %v", err)
+		}
+		fmt.Println(decryptedValue)
 	} else {
-		fmt.Println(AES + encryption.Encrypt(*flagKey, *flagValue))
+		encryptedValue, err := encryption.Encrypt(*flagKey, *flagValue)
+		if err != nil {
+			log.Fatalf("Error encrypting value: %v", err)
+		}
+		fmt.Println(AES + encryptedValue)
 	}
 	os.Exit(0)
 }
@@ -90,14 +98,37 @@ func isEnvBlock(line string, envs []string) bool {
 	return false
 }
 
-// processYamlLine processes each line of the YAML file, either appending it to output or printing it (if dry-run)
+// processYamlLine processes each line of the YAML file, either encrypting or decrypting it based on the operation
 func processYamlLine(line string, envs []string, key, operation string, dryRun bool) {
 	if isEnvBlock(strings.TrimSpace(line), envs) {
-		// Processing the line within the env block
-		fmt.Println("Processing env block:", line)
-		// Add your encryption/decryption logic here
+		var processedLine string
+		if operation == "encrypt" {
+			encryptedValue, err := encryption.Encrypt(key, line)
+			if err != nil {
+				log.Fatalf("Error encrypting line: %v", err)
+			}
+			processedLine = AES + encryptedValue
+		} else if operation == "decrypt" {
+			decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(line, AES))
+			if err != nil {
+				log.Fatalf("Error decrypting line: %v", err)
+			}
+			processedLine = decryptedValue
+		} else {
+			log.Fatalf("Invalid operation: %v", operation)
+		}
+
+		if dryRun {
+			fmt.Println(processedLine)
+		} else {
+			fmt.Println("Processed:", processedLine)
+		}
 	} else {
 		// Default handling for lines outside of env blocks
-		fmt.Println(line)
+		if dryRun {
+			fmt.Println(line)
+		} else {
+			fmt.Println("Unprocessed:", line)
+		}
 	}
 }
