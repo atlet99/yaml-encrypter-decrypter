@@ -100,24 +100,52 @@ func isEnvBlock(line string, envs []string) bool {
 
 // processYamlLine processes each line of the YAML file, either encrypting or decrypting it based on the operation
 func processYamlLine(line string, envs []string, key, operation string, dryRun bool) {
-	if isEnvBlock(strings.TrimSpace(line), envs) {
+	trimmedLine := strings.TrimSpace(line)
+
+	// Check if the line is in the specified environment block
+	if isEnvBlock(trimmedLine, envs) {
 		var processedLine string
-		if operation == "encrypt" {
-			encryptedValue, err := encryption.Encrypt(key, line)
-			if err != nil {
-				log.Fatalf("Error encrypting line: %v", err)
-			}
-			processedLine = AES + encryptedValue
-		} else if operation == "decrypt" {
-			decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(line, AES))
-			if err != nil {
-				log.Fatalf("Error decrypting line: %v", err)
-			}
-			processedLine = decryptedValue
-		} else {
-			log.Fatalf("Invalid operation: %v", operation)
+
+		// Check for comments
+		commentIndex := strings.Index(trimmedLine, "#")
+		var comment string
+		if commentIndex != -1 {
+			comment = trimmedLine[commentIndex:]
+			trimmedLine = strings.TrimSpace(trimmedLine[:commentIndex])
 		}
 
+		// Check if line contains quotes and extract the value to encrypt/decrypt
+		if strings.Contains(trimmedLine, "\"") {
+			valueStart := strings.Index(trimmedLine, "\"")
+			valueEnd := strings.LastIndex(trimmedLine, "\"")
+			if valueStart != valueEnd && valueStart != -1 && valueEnd != -1 {
+				value := trimmedLine[valueStart+1 : valueEnd]
+
+				// Encrypt or decrypt based on operation
+				if operation == "encrypt" {
+					encryptedValue, err := encryption.Encrypt(key, value)
+					if err != nil {
+						log.Fatalf("Error encrypting line: %v", err)
+					}
+					processedLine = trimmedLine[:valueStart+1] + AES + encryptedValue + "\"" + " " + comment
+				} else if operation == "decrypt" {
+					if strings.HasPrefix(value, AES) {
+						decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(value, AES))
+						if err != nil {
+							log.Fatalf("Error decrypting line: %v", err)
+						}
+						processedLine = trimmedLine[:valueStart+1] + decryptedValue + "\"" + " " + comment
+					} else {
+						log.Printf("Skipping decryption, value is not encrypted: %s", value)
+						processedLine = line
+					}
+				} else {
+					log.Fatalf("Invalid operation: %v", operation)
+				}
+			}
+		}
+
+		// Output the processed line or save it
 		if dryRun {
 			fmt.Println(processedLine)
 		} else {
