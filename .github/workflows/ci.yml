@@ -82,7 +82,11 @@ jobs:
 
       - name: Build Linux binary
         run: |
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.linux
+
+      - name: Build macOS binary
+        run: |
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.darwin
 
       - name: Build Windows binary
         run: |
