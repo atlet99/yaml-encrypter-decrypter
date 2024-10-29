@@ -16,8 +16,6 @@ const AES = "AES256:"
 var Version = "dev" // default to "dev" if version is not provided during build
 
 func main() {
-	// Debug output to check the value of Version
-	fmt.Printf("Debug: Version is set to %s\n", Version)
 
 	// Command-line flags
 	flagVersion := flag.Bool("version", false, "Show the version and exit")

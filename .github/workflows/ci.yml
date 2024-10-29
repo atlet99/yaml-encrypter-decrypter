@@ -98,5 +98,6 @@ jobs:
           body_path: last_commits.txt
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            yed
+            yed.linux
+            yed.darwin
             yed.exe
