@@ -49,3 +49,24 @@ jobs:
           new_tag=$(head -n 1 .release-version)
           git tag $new_tag
           git push origin $new_tag
+
+      - name: Trigger Release Workflow
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const workflow = await github.actions.listRepoWorkflows({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const releaseWorkflow = workflow.data.workflows.find(w => w.name === "ci-builds-and-releases");
+            if (releaseWorkflow) {
+              await github.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: releaseWorkflow.id,
+                ref: "main",
+              });
+            } else {
+              core.setFailed("ci-builds-and-releases.yml not found");
+            }

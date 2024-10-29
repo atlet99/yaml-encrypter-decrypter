@@ -1,6 +1,7 @@
 name: ci-builds-and-releases
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'  # Запускать только на новых тегах
