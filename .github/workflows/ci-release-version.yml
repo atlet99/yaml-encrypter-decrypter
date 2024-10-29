@@ -1,0 +1,51 @@
+name: Update Release Version
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update-release-version:
+    name: Update .release-version with tag and build ID
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine next tag
+        run: |
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+          IFS='.' read -r major minor patch <<< "${latest_tag#v}"
+          patch=$((patch + 1))
+          if [ "$patch" -ge 10 ]; then
+            patch=0
+            minor=$((minor + 1))
+          fi
+          if [ "$minor" -ge 10 ]; then
+            minor=0
+            major=$((major + 1))
+          fi
+          new_tag="v$major.$minor.$patch"
+          echo "New tag: $new_tag"
+          echo "$new_tag" > .release-version
+          echo "version $new_tag (build ${{ github.run_id }})" >> .release-version
+    
+      - name: Commit and push .release-version
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git add .release-version
+          git commit -m "Update .release-version with version and build ID"
+          git push origin HEAD:main
+
+      - name: Create and push new tag
+        run: |
+          new_tag=$(head -n 1 .release-version)
+          git tag $new_tag
+          git push origin $new_tag
