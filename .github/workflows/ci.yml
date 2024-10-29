@@ -82,11 +82,11 @@ jobs:
 
       - name: Build Linux binary
         run: |
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X 'main.Version=${{ env.VERSION }}'" -o yed
+          GOOS=linux GOARCH=amd64 go build -ldflags '-X main.Version="${{ env.VERSION }}"' -o yed
 
       - name: Build Windows binary
         run: |
-          GOOS=windows GOARCH=amd64 go build -ldflags "-X 'main.Version=${{ env.VERSION }}'" -o yed.exe
+          GOOS=windows GOARCH=amd64 go build -ldflags '-X main.Version="${{ env.VERSION }}"' -o yed.exe
 
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2
