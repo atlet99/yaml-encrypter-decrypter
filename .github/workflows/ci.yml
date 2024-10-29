@@ -49,6 +49,8 @@ jobs:
     name: Update .release-version with tag and build ID
     runs-on: ubuntu-20.04
     needs: build
+    outputs:
+      TAG_NAME: ${{ steps.set_tag.outputs.TAG_NAME }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -72,25 +74,25 @@ jobs:
           fi
           new_tag="v$major.$minor.$patch"
           echo "New tag: $new_tag"
-          echo "TAG_NAME=$new_tag" >> $GITHUB_ENV
+          echo "::set-output name=TAG_NAME::$new_tag"
 
       - name: Update .release-version with new tag and build ID
         run: |
           short_build_id=${{ github.run_id }}
-          echo "version ${{ env.TAG_NAME }} (build $short_build_id)" > .release-version
+          echo "version ${{ steps.set_tag.outputs.TAG_NAME }} (build $short_build_id)" > .release-version
           
       - name: Commit and push .release-version
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git add .release-version
-          git commit -m "Update .release-version with version ${{ env.TAG_NAME }} and build ID $short_build_id"
+          git commit -m "Update .release-version with version ${{ steps.set_tag.outputs.TAG_NAME }} and build ID $short_build_id"
           git push origin HEAD:main
 
       - name: Create and push new tag
         run: |
-          git tag ${{ env.TAG_NAME }}
-          git push origin ${{ env.TAG_NAME }}
+          git tag ${{ steps.set_tag.outputs.TAG_NAME }}
+          git push origin ${{ steps.set_tag.outputs.TAG_NAME }}
 
   release:
     name: Create GitHub Release
@@ -141,7 +143,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: last_commits.txt
-          tag_name: ${{ env.TAG_NAME }}
+          tag_name: ${{ needs.update-release-version.outputs.TAG_NAME }}
           files: |
             yed
             yed.exe
