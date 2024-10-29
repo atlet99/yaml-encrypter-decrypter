@@ -12,8 +12,12 @@ import (
 
 const AES = "AES256:"
 
+// Version will be set during build time using -ldflags
+var Version = "dev" // default to "dev" if version is not provided during build
+
 func main() {
 	// Flag parameters
+	flagVersion := flag.Bool("version", false, "Show the version and exit")
 	flagKey := flag.String("key", "", "AES key-password for encrypt/decrypt")
 	flagDryRun := flag.Bool("dry-run", false, "Output only, no file changes")
 	flagFile := flag.String("filename", "", "File to encode/decode")
@@ -25,6 +29,12 @@ func main() {
 	flagValue := flag.String("value", "", "Single value for encryption/decryption")
 	flagOperation := flag.String("operation", "", "Available operations: encrypt, decrypt")
 	flag.Parse()
+
+	// Display version if --version is specified
+	if *flagVersion {
+		fmt.Printf("yaml-encrypter-decrypter version: %s\n", Version)
+		os.Exit(0)
+	}
 
 	log.SetFlags(0) // Disable timestamp in logging output
 
