@@ -59,7 +59,7 @@ There are no sense to decode/encode the whole YAML file.
 - 100% free and open source
 
 # Download
-https://github.com/kruchkov-alexandr/yaml-encrypter-decrypter/releases/
+https://github.com/atlet99/yaml-encrypter-decrypter/releases/
 # How to use
 ```
 There are 6 flags:
@@ -165,9 +165,16 @@ PLAINTEXT
 
 
 # BUILD
+Simple build commands:
 ```
-set GOARCH=amd64 && set GOOS=linux && go build -o yed main.go
+set GOARCH=amd64 && set GOOS=linux && go build -o yed.linux main.go
+set GOARCH=arm64 && set GOOS=darwin && go build -o yed.darwin main.go
 set GOARCH=amd64 && set GOOS=windows && go build -o yed.exe main.go
+```
+Simple rename and add permissions:
+```
+mv yed.linux yed && chmod u+x yed;
+mv yed.darwin yed && chmod u+x yed;
 ```
 
 # EXAMPLE
