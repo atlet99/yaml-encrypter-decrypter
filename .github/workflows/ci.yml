@@ -2,11 +2,8 @@ name: ci-builds-and-releases
 
 on:
   push:
-    branches:
-      - main
-  release:
-    types:
-      - created
+    tags:
+      - 'v*'  # Запускать только на новых тегах
 
 permissions:
   contents: write
@@ -17,25 +14,30 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        uses: step-security/harden-runner@v2.10.1
         with:
           egress-policy: audit
 
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
       - name: Get short SHA
         id: vars
         run: echo "SHORT_SHA=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_ENV
+
       - name: Get repo name
         id: repo_vars
         run: echo "GH_REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v3
         with:
@@ -45,78 +47,24 @@ jobs:
           platforms: 'linux/amd64,linux/arm64'
           labels: ${{ github.repository }}
 
-  update-release-version:
-    name: Update .release-version with tag and build ID
-    runs-on: ubuntu-20.04
-    needs: build
-    outputs:
-      TAG_NAME: ${{ steps.set_tag.outputs.TAG_NAME }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Determine next tag
-        id: tag_version
-        run: |
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
-          echo "Latest tag: $latest_tag"
-          IFS='.' read -r major minor patch <<< "${latest_tag#v}"
-          patch=$((patch + 1))
-          if [ "$patch" -ge 10 ]; then
-            patch=0
-            minor=$((minor + 1))
-          fi
-          if [ "$minor" -ge 10 ]; then
-            minor=0
-            major=$((major + 1))
-          fi
-          new_tag="v$major.$minor.$patch"
-          echo "New tag: $new_tag"
-          echo "::set-output name=TAG_NAME::$new_tag"
-
-      - name: Update .release-version with new tag and build ID
-        run: |
-          short_build_id=${{ github.run_id }}
-          echo "version ${{ steps.set_tag.outputs.TAG_NAME }} (build $short_build_id)" > .release-version
-          
-      - name: Commit and push .release-version
-        run: |
-          git config --local user.name "github-actions[bot]"
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git add .release-version
-          git commit -m "Update .release-version with version ${{ steps.set_tag.outputs.TAG_NAME }} and build ID $short_build_id"
-          git push origin HEAD:main
-
-      - name: Create and push new tag
-        run: |
-          git tag ${{ steps.set_tag.outputs.TAG_NAME }}
-          git push origin ${{ steps.set_tag.outputs.TAG_NAME }}
-
   release:
     name: Create GitHub Release
     runs-on: ubuntu-20.04
-    needs: update-release-version
-    permissions:
-      contents: write
-      actions: read
-      discussions: write
+    needs: build
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Pull the latest changes including updated .release-version
 
       - name: Read .release-version for Version variable
         id: version_file
         run: |
-          VERSION=$(cat .release-version)
+          TAG_NAME=$(head -n 1 .release-version)
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          VERSION=$(tail -n 1 .release-version)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Get Go Version
         run: |
-          #!/bin/bash
           GOVERSION=$({ [ -f .go-version ] && cat .go-version; })
           echo "GOVERSION=$GOVERSION" >> $GITHUB_ENV
 
@@ -143,7 +91,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: last_commits.txt
-          tag_name: ${{ needs.update-release-version.outputs.TAG_NAME }}
+          tag_name: ${{ env.TAG_NAME }}
           files: |
             yed
             yed.exe
