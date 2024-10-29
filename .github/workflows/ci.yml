@@ -22,11 +22,11 @@ jobs:
           egress-policy: audit
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
       - name: Log in to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -37,7 +37,7 @@ jobs:
         id: repo_vars
         run: echo "GH_REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v1
+        uses: docker/build-push-action@v3
         with:
           context: .
           tags: ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:${{ env.SHORT_SHA }}, ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:latest
@@ -51,7 +51,7 @@ jobs:
     needs: build
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -102,7 +102,7 @@ jobs:
       discussions: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Pull the latest changes including updated .release-version
 
@@ -119,7 +119,7 @@ jobs:
           echo "GOVERSION=$GOVERSION" >> $GITHUB_ENV
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GOVERSION }}
 
