@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*'  # Запускать только на новых тегах
+      - 'v*'
 
 permissions:
   contents: write
