@@ -1,4 +1,3 @@
 ### Global ignore files and folders
 *.kts
-vscode*
-settings.json
+.vscode

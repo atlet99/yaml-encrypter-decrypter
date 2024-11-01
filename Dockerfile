@@ -19,4 +19,4 @@ COPY --from=builder /app/yaml-encrypter-decrypter .
 
 RUN chmod +x yaml-encrypter-decrypter
 
-CMD ["./yaml-encrypter-decrypter"]
+CMD ["./yaml-encrypter-decrypter", "--version"]
