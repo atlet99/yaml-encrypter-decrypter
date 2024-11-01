@@ -1,0 +1,12 @@
+{
+    "workbench.colorTheme": "GitHub Dark Default",
+    "workbench.iconTheme": "vscode-great-icons",
+    "git.enableSmartCommit": true,
+    "git.autofetch": true,
+    "git.confirmSync": false,
+    "explorer.confirmDelete": false,
+    "explorer.confirmDragAndDrop": false,
+    "explorer.confirmPasteNative": false,
+    "git.replaceTagsWhenPull": true,
+    "editor.wordWrap": "on"
+}

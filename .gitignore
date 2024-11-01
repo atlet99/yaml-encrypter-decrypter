@@ -1,2 +1,6 @@
-.vscode
+### Global ignored files and folders
+
+# I commented out the .vscode folder to enable high-quality work with the editor
+#.vscode
+
 .idea
