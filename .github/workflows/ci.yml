@@ -40,7 +40,7 @@ jobs:
         run: echo "GH_REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
           context: .
           tags: ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:${{ env.SHORT_SHA }}, ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:latest
