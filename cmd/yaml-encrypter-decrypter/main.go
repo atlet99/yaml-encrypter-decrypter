@@ -25,8 +25,8 @@ type Config struct {
 	} `yaml:"logging"`
 }
 
-// Version will be set during build time using -ldflags
-var Version = "dev" // default to "dev" if version is not provided during build
+// Version is read from the .release-version file
+var Version = getVersionFromFile(".release-version")
 
 func main() {
 	flagVersion := flag.Bool("version", false, "Show the version and exit")
@@ -81,6 +81,29 @@ func main() {
 	}
 
 	processYamlFile(*flagFile, flagEnvBlocks, *flagKey, *flagOperation, *flagDryRun)
+}
+
+// getVersionFromFile reads the last line from the specified file to set the version
+func getVersionFromFile(filename string) string {
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Printf("Warning: Could not read version from %s: %v", filename, err)
+		return "dev" // default version if file is not available
+	}
+	defer file.Close()
+
+	var lastLine string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		lastLine = scanner.Text()
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("Warning: Error reading %s: %v", filename, err)
+		return "dev"
+	}
+
+	return lastLine
 }
 
 // loadConfig loads environment-specific configuration from YAML files in order
