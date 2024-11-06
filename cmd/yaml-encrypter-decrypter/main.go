@@ -135,6 +135,79 @@ func processYamlFile(filename string, envs []string, key, operation string, dryR
 	}
 }
 
+// processYamlLine processes each line of the YAML file, either encrypting or decrypting it based on the operation
+func processYamlLine(line string, envs []string, key, operation string, dryRun bool) {
+	trimmedLine := strings.TrimSpace(line)
+
+	// Check if the line is in the specified environment blocks
+	if isEnvBlock(trimmedLine, envs) {
+		var processedLine string
+
+		// Check for comments in the line
+		commentIndex := strings.Index(trimmedLine, "#")
+		var comment string
+		if commentIndex != -1 {
+			comment = trimmedLine[commentIndex:]
+			trimmedLine = strings.TrimSpace(trimmedLine[:commentIndex])
+		}
+
+		// Process quoted values for encryption/decryption
+		if strings.Contains(trimmedLine, "\"") {
+			valueStart := strings.Index(trimmedLine, "\"")
+			valueEnd := strings.LastIndex(trimmedLine, "\"")
+			if valueStart != valueEnd && valueStart != -1 && valueEnd != -1 {
+				value := trimmedLine[valueStart+1 : valueEnd]
+
+				// Encrypt or decrypt based on the operation
+				if operation == "encrypt" {
+					encryptedValue, err := encryption.Encrypt(key, value)
+					if err != nil {
+						log.Fatalf("Error encrypting line: %v", err)
+					}
+					processedLine = trimmedLine[:valueStart+1] + AES + encryptedValue + "\"" + " " + comment
+				} else if operation == "decrypt" {
+					if strings.HasPrefix(value, AES) {
+						decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(value, AES))
+						if err != nil {
+							log.Fatalf("Error decrypting line: %v", err)
+						}
+						processedLine = trimmedLine[:valueStart+1] + decryptedValue + "\"" + " " + comment
+					} else {
+						log.Printf("Skipping decryption, value is not encrypted: %s", value)
+						processedLine = line
+					}
+				} else {
+					log.Fatalf("Invalid operation: %v", operation)
+				}
+			}
+		}
+
+		// Output the processed line or print it for dry run
+		if dryRun {
+			fmt.Println(processedLine)
+		} else {
+			fmt.Println("Processed:", processedLine)
+		}
+	} else {
+		// Default handling for lines outside of env blocks
+		if dryRun {
+			fmt.Println(line)
+		} else {
+			fmt.Println("Unprocessed:", line)
+		}
+	}
+}
+
+// isEnvBlock checks if the line belongs to one of the specified YAML blocks
+func isEnvBlock(line string, envs []string) bool {
+	for _, env := range envs {
+		if strings.HasPrefix(line, env) {
+			return true
+		}
+	}
+	return false
+}
+
 func readFile(filename string) ([]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
