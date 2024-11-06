@@ -29,6 +29,7 @@ type Config struct {
 var Version = getVersionFromFile(".release-version")
 
 func main() {
+	// Define flags
 	flagVersion := flag.Bool("version", false, "Show the version and exit")
 	flagKey := flag.String("key", "", "AES key-password for encrypt/decrypt")
 	flagEnv := flag.String("env", "dev", "Environment (dev or test)")
@@ -41,8 +42,17 @@ func main() {
 	})
 	flagValue := flag.String("value", "", "Single value for encryption/decryption")
 	flagOperation := flag.String("operation", "", "Available operations: encrypt, decrypt")
+
+	// Override the default usage function to include the version before displaying usage info
+	flag.Usage = func() {
+		fmt.Printf("yed version: %s\nUsage:\n", Version)
+		flag.PrintDefaults()
+	}
+
+	// Parse flags
 	flag.Parse()
 
+	// If --version is specified, display version and exit
 	if *flagVersion {
 		fmt.Printf("yed version: %s\n", Version)
 		return
