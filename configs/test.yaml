@@ -1,0 +1,6 @@
+# Configuration for testing environment
+encryption:
+  key: "test-default-key"
+  env_blocks:
+    - "test_password"
+    - "test_apiKey"

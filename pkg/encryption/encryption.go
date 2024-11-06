@@ -11,14 +11,12 @@ import (
 	"io"
 )
 
-// Encrypt encrypts a plaintext string using AES encryption and returns a base64-encoded ciphertext.
 func Encrypt(password, plaintext string) (string, error) {
 	if plaintext == "" {
 		return "", errors.New("plaintext is empty")
 	}
 
-	key := make([]byte, 32)
-	copy(key, []byte(password))
+	key := generateKey(password)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -39,7 +37,6 @@ func Encrypt(password, plaintext string) (string, error) {
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-// Decrypt decrypts a base64-encoded ciphertext string using AES and returns the plaintext.
 func Decrypt(password, crypt64 string) (string, error) {
 	if crypt64 == "" {
 		return "", errors.New("encrypted text is empty")
@@ -50,8 +47,7 @@ func Decrypt(password, crypt64 string) (string, error) {
 		return "", fmt.Errorf("failed to decode base64 string: %v", err)
 	}
 
-	key := make([]byte, 32)
-	copy(key, []byte(password))
+	key := generateKey(password)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -67,14 +63,18 @@ func Decrypt(password, crypt64 string) (string, error) {
 	return string(unpad(decrypted)), nil
 }
 
-// pad adds padding to data to ensure it fits AES block size requirements
+func generateKey(password string) []byte {
+	key := make([]byte, 32)
+	copy(key, []byte(password))
+	return key
+}
+
 func pad(data []byte, blockSize int) []byte {
 	padding := blockSize - len(data)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(data, padtext...)
 }
 
-// unpad removes padding from data, reversing the padding added by pad
 func unpad(data []byte) []byte {
 	length := len(data)
 	unpadding := int(data[length-1])
