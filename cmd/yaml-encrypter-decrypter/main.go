@@ -20,6 +20,9 @@ type Config struct {
 		Key       string   `yaml:"key"`
 		EnvBlocks []string `yaml:"env_blocks"`
 	} `yaml:"encryption"`
+	Logging struct {
+		Level string `yaml:"level"`
+	} `yaml:"logging"`
 }
 
 // Version will be set during build time using -ldflags
@@ -80,20 +83,28 @@ func main() {
 	processYamlFile(*flagFile, flagEnvBlocks, *flagKey, *flagOperation, *flagDryRun)
 }
 
-// loadConfig loads environment-specific configuration from YAML file
+// loadConfig loads environment-specific configuration from YAML files in order
 func loadConfig(env string) (*Config, error) {
-	file := fmt.Sprintf("configs/%s.yaml", env)
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, fmt.Errorf("could not open config file: %w", err)
-	}
-	defer f.Close()
+	baseConfigFile := "configs/values.yaml"
+	envConfigFile := fmt.Sprintf("configs/%s.yaml", env)
 
 	var config Config
-	decoder := yaml.NewDecoder(f)
-	if err := decoder.Decode(&config); err != nil {
-		return nil, fmt.Errorf("could not decode config YAML: %w", err)
+
+	files := []string{baseConfigFile, envConfigFile}
+	for _, file := range files {
+		f, err := os.Open(file)
+		if err != nil {
+			log.Printf("Skipping config file %s: %v", file, err)
+			continue
+		}
+		defer f.Close()
+
+		decoder := yaml.NewDecoder(f)
+		if err := decoder.Decode(&config); err != nil {
+			return nil, fmt.Errorf("could not decode config YAML from %s: %w", file, err)
+		}
 	}
+
 	return &config, nil
 }
 
