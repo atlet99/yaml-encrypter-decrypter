@@ -52,6 +52,7 @@ func TestIncorrectPassword(t *testing.T) {
 		t.Fatalf("failed to encrypt: %v", err)
 	}
 
+	// Attempt decryption with an incorrect password
 	_, err = Decrypt(wrongPassword, encrypted)
 	if err == nil {
 		t.Fatal("expected error for incorrect password, got none")
@@ -97,9 +98,8 @@ func TestInvalidIVLength(t *testing.T) {
 		t.Fatalf("failed to encrypt: %v", err)
 	}
 
-	// Modify IV by setting an invalid value for the entire IV part
-	// The AES block size is 16 bytes, so we replace the first 16 characters
-	modifiedEncrypted := "AAAAAAAAAAAAAAAA" + encrypted[16:]
+	// Modify the IV by changing the first 16 bytes to simulate an invalid IV
+	modifiedEncrypted := "invalidIVinvalidIV" + encrypted[16:]
 
 	_, err = Decrypt(password, modifiedEncrypted)
 	if err == nil {
