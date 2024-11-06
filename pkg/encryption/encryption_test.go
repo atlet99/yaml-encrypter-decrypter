@@ -97,10 +97,10 @@ func TestInvalidIVLength(t *testing.T) {
 		t.Fatalf("failed to encrypt: %v", err)
 	}
 
-	// Modify ciphertext to have an invalid IV length
-	encrypted = encrypted[4:]
+	// Modify the IV to simulate invalid IV
+	modifiedEncrypted := "AAAA" + encrypted[4:]
 
-	_, err = Decrypt(password, encrypted)
+	_, err = Decrypt(password, modifiedEncrypted)
 	if err == nil {
 		t.Fatal("expected error for invalid IV length, got none")
 	}
