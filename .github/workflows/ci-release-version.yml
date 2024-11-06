@@ -35,7 +35,7 @@ jobs:
           new_tag="v$major.$minor.$patch"
           echo "New tag: $new_tag"
           echo "$new_tag" > .release-version
-          echo "version $new_tag (build ${{ github.run_id }})" >> .release-version
+          echo "$new_tag (build ${{ github.run_id }})" >> .release-version
     
       - name: Commit and push .release-version
         run: |
