@@ -82,15 +82,15 @@ jobs:
 
       - name: Build Linux binary
         run: |
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.linux
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.linux ./cmd/yaml-encrypter-decrypter
 
       - name: Build macOS binary
         run: |
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.darwin
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.darwin ./cmd/yaml-encrypter-decrypter
 
       - name: Build Windows binary
         run: |
-          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.exe
+          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.exe ./cmd/yaml-encrypter-decrypter
 
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2
