@@ -1,0 +1,63 @@
+---
+# Configuration file for testing various cases in encryption, YAML structure, and parsing.
+# This file includes:
+# - Secret data with encryption and empty values
+# - Nested data structures to test YAML block parsing
+# - Array data to ensure proper handling of encrypted and plain text within lists
+# - Database settings with encrypted credentials
+# - Logging level for test logging output
+
+encryption:
+  key: AES256:SuperSecretKey1234567890123456  # Default encryption key for testing
+  env_blocks:
+    - "secret_data"
+    - "nested_data.protected"
+    - "array_data.*"
+
+secret_data:
+  key: AES256:XhHUJpqNNuKlAEQ1x26+cxh4B8Ji1Ty2uk3u21+L/F0= 
+  coins: AES256:lr0PR0l0Eb8ZGmsChzBD+ns0pC98CfL4cBMKQudcp+s=
+  empty_value: ""  # Empty value for testing
+  
+  key_with_comment: secret-string
+  value_quotes: "faceless messenger"
+  value_quotes_two: "faceless messenger"
+  value_new: "plaintext"
+
+nested_data:
+  1: 2
+  bla:
+    bla: bla2
+  protected:
+    3: AES256:xD0vqdEaRNegV1I4HMeW3DWRsrzJJeM9SB1Gjfha6Jg=
+    key: AES256:daUgDmBTqLRQdA84Wan6zb5AqFDqyeLeRzlKFfpUQhQ=
+    comment_example: "example text"
+
+array_data:
+  - name: "item1"
+    description: AES256:wUEP9OQLoHwK0/MbWk+/sQ== 
+  - name: "item2"
+    description: "plaintext description" 
+  - name: "item3"
+    empty_field: "" 
+    comments: "sample text"
+
+logging:
+  level: "DEBUG"
+
+database:
+  host: "localhost"
+  port: 5432
+  username: "user"
+  password: AES256:XytH7Bd04fjH8HeZk2t4fl==
+  connection_timeout: ""  
+  max_connections: 10
+
+test_cases:
+  - case_id: 1
+    description: AES256:mHeRlqzCg5mj6L8Hs76U/A==
+  - case_id: 2
+    description: "non-encrypted description" 
+  - case_id: 3
+    empty_field: "" 
+    status: "active"

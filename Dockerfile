@@ -4,19 +4,14 @@ RUN apk --no-cache add build-base git
 
 WORKDIR /app
 
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+RUN CGO_ENABLED=0 go build -o yed ./cmd/yaml-encrypter-decrypter
 
-RUN CGO_ENABLED=0 go build -o yaml-encrypter-decrypter
-
-FROM alpine:latest
-
-WORKDIR /app
-
-COPY --from=builder /app/yaml-encrypter-decrypter .
-
-RUN chmod +x yaml-encrypter-decrypter
-
-CMD ["./yaml-encrypter-decrypter", "--version"]
+# Final stage with scratch image
+FROM scratch
+COPY --from=builder /app/yed /yed
+ENTRYPOINT ["/yed"]
+CMD ["--version"]
