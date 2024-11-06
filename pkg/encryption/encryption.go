@@ -73,7 +73,12 @@ func Decrypt(password, crypt64 string) (string, error) {
 	mode.CryptBlocks(decrypted, crypt)
 
 	// Remove padding and return plaintext
-	return string(unpad(decrypted)), nil
+	decrypted, err = unpad(decrypted)
+	if err != nil {
+		return "", fmt.Errorf("failed to unpad decrypted text: %w", err)
+	}
+
+	return string(decrypted), nil
 }
 
 // deriveKey derives a 32-byte key from the given password for AES-256.
