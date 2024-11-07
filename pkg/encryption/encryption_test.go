@@ -146,10 +146,17 @@ func TestShortAndLongPassword(t *testing.T) {
 // TestUnpadError checks that unpad returns an error for invalid padding.
 func TestUnpadError(t *testing.T) {
 	// Invalid padded data that will cause an error in unpad
-	invalidPaddedData := []byte{4, 4, 4, 4, 4} // Padding exceeds length
+	invalidPaddedData := []byte{5, 5, 5, 5, 5} // Padding value exceeds data length
 
 	_, err := unpad(invalidPaddedData)
 	if err == nil {
 		t.Fatal("expected error for invalid padding, got none")
+	}
+
+	// Additional invalid padding case where padding is zero
+	invalidPaddedDataZero := []byte{1, 2, 3, 0}
+	_, err = unpad(invalidPaddedDataZero)
+	if err == nil {
+		t.Fatal("expected error for zero padding, got none")
 	}
 }
