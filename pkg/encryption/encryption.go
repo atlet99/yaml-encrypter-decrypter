@@ -95,7 +95,6 @@ func pad(data []byte, blockSize int) []byte {
 	return append(data, padtext...)
 }
 
-// unpad removes PKCS#7 padding from data, validating that padding bytes are consistent.
 func unpad(data []byte) ([]byte, error) {
 	length := len(data)
 	if length == 0 {
@@ -103,11 +102,12 @@ func unpad(data []byte) ([]byte, error) {
 	}
 
 	padding := int(data[length-1])
-	if padding > length || padding == 0 {
-		return nil, errors.New("unpad error: invalid padding")
+	// Check if padding is within valid bounds
+	if padding <= 0 || padding > length {
+		return nil, errors.New("unpad error: invalid padding size")
 	}
 
-	// Verify that each padding byte matches the padding length
+	// Validate that all padding bytes match the padding value
 	for i := length - padding; i < length; i++ {
 		if data[i] != byte(padding) {
 			return nil, errors.New("unpad error: inconsistent padding")

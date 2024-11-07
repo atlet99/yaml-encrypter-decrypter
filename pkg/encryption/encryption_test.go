@@ -133,31 +133,39 @@ func TestShortAndLongPassword(t *testing.T) {
 }
 
 func TestUnpadError(t *testing.T) {
-	// Padding larger than the length of data
-	invalidPaddedData := []byte{4, 4, 4, 4}
-	_, err := unpad(invalidPaddedData)
+	// Case 1: Padding byte larger than data length
+	invalidPadding := []byte{5, 5, 5, 5, 5}
+	_, err := unpad(invalidPadding)
 	if err == nil {
-		t.Fatal("expected error for invalid padding, got none")
+		t.Fatal("Expected error for invalid padding length, got none")
+	} else {
+		t.Logf("Received expected error for invalid padding length: %v", err)
 	}
 
-	// Zero padding, which is invalid
-	invalidPaddedDataZero := []byte{1, 2, 3, 0}
-	_, err = unpad(invalidPaddedDataZero)
+	// Case 2: Zero padding byte at the end, which is invalid in PKCS#7
+	invalidZeroPadding := []byte{1, 2, 3, 0}
+	_, err = unpad(invalidZeroPadding)
 	if err == nil {
-		t.Fatal("expected error for zero padding, got none")
+		t.Fatal("Expected error for zero padding, got none")
+	} else {
+		t.Logf("Received expected error for zero padding: %v", err)
 	}
 
-	// Padding value larger than the length of data
-	invalidPaddedDataExceedsLength := []byte{10, 10, 10}
-	_, err = unpad(invalidPaddedDataExceedsLength)
-	if err == nil {
-		t.Fatal("expected error for padding exceeding data length, got none")
-	}
-
-	// Inconsistent padding bytes
+	// Case 3: Inconsistent padding bytes (not all padding bytes are the same)
 	inconsistentPadding := []byte{1, 2, 3, 2, 4}
 	_, err = unpad(inconsistentPadding)
 	if err == nil {
-		t.Fatal("expected error for inconsistent padding, got none")
+		t.Fatal("Expected error for inconsistent padding, got none")
+	} else {
+		t.Logf("Received expected error for inconsistent padding: %v", err)
+	}
+
+	// Case 4: Padding byte larger than actual data length
+	excessivePadding := []byte{10, 10, 10}
+	_, err = unpad(excessivePadding)
+	if err == nil {
+		t.Fatal("Expected error for padding exceeding data length, got none")
+	} else {
+		t.Logf("Received expected error for padding exceeding data length: %v", err)
 	}
 }
