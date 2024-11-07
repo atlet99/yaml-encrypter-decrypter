@@ -1,9 +1,11 @@
 package encryption
 
 import (
+	"encoding/base64"
 	"testing"
 )
 
+// TestEncryptDecrypt checks that encryption and decryption work as expected.
 func TestEncryptDecrypt(t *testing.T) {
 	password := "strongpassword"
 	plaintext := "Powered by YED!"
@@ -23,6 +25,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 }
 
+// TestEmptyPlaintext checks that an error is returned when encrypting an empty plaintext.
 func TestEmptyPlaintext(t *testing.T) {
 	password := "strongpassword"
 	plaintext := ""
@@ -31,17 +34,20 @@ func TestEmptyPlaintext(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for empty plaintext, got none")
 	}
+}
 
-	decrypted, err := Decrypt(password, "")
+// TestInvalidBase64String checks that an error is returned for an invalid base64 input.
+func TestInvalidBase64String(t *testing.T) {
+	password := "strongpassword"
+	invalidBase64 := "invalid base64 text!"
+
+	_, err := Decrypt(password, invalidBase64)
 	if err == nil {
-		t.Fatal("expected error for empty encrypted text, got none")
-	}
-
-	if decrypted != "" {
-		t.Errorf("expected empty string, got %s", decrypted)
+		t.Fatal("expected error for invalid base64 encoded text, got none")
 	}
 }
 
+// TestIncorrectPassword checks that an error is returned when using the wrong password for decryption.
 func TestIncorrectPassword(t *testing.T) {
 	password := "strongpassword"
 	wrongPassword := "wrongpassword"
@@ -52,13 +58,13 @@ func TestIncorrectPassword(t *testing.T) {
 		t.Fatalf("failed to encrypt: %v", err)
 	}
 
-	// Attempt decryption with an incorrect password
 	_, err = Decrypt(wrongPassword, encrypted)
 	if err == nil {
 		t.Fatal("expected error for incorrect password, got none")
 	}
 }
 
+// TestSpecialCharacters checks encryption and decryption of a string with special characters.
 func TestSpecialCharacters(t *testing.T) {
 	password := "strongpassword"
 	plaintext := "Special chars: !@#$%^&*()_+-=[]{}|;':\",./<>?`~"
@@ -78,27 +84,28 @@ func TestSpecialCharacters(t *testing.T) {
 	}
 }
 
+// TestInvalidCipherTextFormat checks that an error is returned for an invalid ciphertext format.
 func TestInvalidCipherTextFormat(t *testing.T) {
 	password := "strongpassword"
-	invalidCipherText := "Invalid base64 text!"
+	invalidCipherText := base64.StdEncoding.EncodeToString([]byte("short"))
 
 	_, err := Decrypt(password, invalidCipherText)
 	if err == nil {
-		t.Fatal("expected error for invalid base64 encoded text, got none")
+		t.Fatal("expected error for invalid ciphertext format, got none")
 	}
 }
 
+// TestInvalidIVLength checks that an error is returned when IV length is incorrect.
 func TestInvalidIVLength(t *testing.T) {
 	password := "strongpassword"
 	plaintext := "Sample text"
 
-	// Encrypt text to generate a valid ciphertext
 	encrypted, err := Encrypt(password, plaintext)
 	if err != nil {
 		t.Fatalf("failed to encrypt: %v", err)
 	}
 
-	// Modify the IV by changing the first 16 bytes to simulate an invalid IV
+	// Tamper with the IV by replacing the first 16 bytes
 	modifiedEncrypted := "invalidIVinvalidIV" + encrypted[16:]
 
 	_, err = Decrypt(password, modifiedEncrypted)
@@ -107,6 +114,7 @@ func TestInvalidIVLength(t *testing.T) {
 	}
 }
 
+// TestShortAndLongPassword checks encryption and decryption with both short and long passwords.
 func TestShortAndLongPassword(t *testing.T) {
 	plaintext := "Data with short and long password"
 
@@ -132,5 +140,16 @@ func TestShortAndLongPassword(t *testing.T) {
 	decrypted, err = Decrypt(longPassword, encrypted)
 	if err != nil || decrypted != plaintext {
 		t.Fatalf("decryption failed with long password, expected %s got %s", plaintext, decrypted)
+	}
+}
+
+// TestUnpadError checks that unpad returns an error for invalid padding.
+func TestUnpadError(t *testing.T) {
+	// Invalid padded data that will cause an error in unpad
+	invalidPaddedData := []byte{4, 4, 4, 4, 4} // Padding exceeds length
+
+	_, err := unpad(invalidPaddedData)
+	if err == nil {
+		t.Fatal("expected error for invalid padding, got none")
 	}
 }
