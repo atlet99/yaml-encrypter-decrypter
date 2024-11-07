@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// TestEncryptDecrypt checks that encryption and decryption work as expected.
 func TestEncryptDecrypt(t *testing.T) {
 	password := "strongpassword"
 	plaintext := "Powered by YED!"
@@ -25,7 +24,6 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 }
 
-// TestEmptyPlaintext checks that an error is returned when encrypting an empty plaintext.
 func TestEmptyPlaintext(t *testing.T) {
 	password := "strongpassword"
 	plaintext := ""
@@ -36,7 +34,6 @@ func TestEmptyPlaintext(t *testing.T) {
 	}
 }
 
-// TestInvalidBase64String checks that an error is returned for an invalid base64 input.
 func TestInvalidBase64String(t *testing.T) {
 	password := "strongpassword"
 	invalidBase64 := "invalid base64 text!"
@@ -47,7 +44,6 @@ func TestInvalidBase64String(t *testing.T) {
 	}
 }
 
-// TestIncorrectPassword checks that an error is returned when using the wrong password for decryption.
 func TestIncorrectPassword(t *testing.T) {
 	password := "strongpassword"
 	wrongPassword := "wrongpassword"
@@ -64,7 +60,6 @@ func TestIncorrectPassword(t *testing.T) {
 	}
 }
 
-// TestSpecialCharacters checks encryption and decryption of a string with special characters.
 func TestSpecialCharacters(t *testing.T) {
 	password := "strongpassword"
 	plaintext := "Special chars: !@#$%^&*()_+-=[]{}|;':\",./<>?`~"
@@ -84,7 +79,6 @@ func TestSpecialCharacters(t *testing.T) {
 	}
 }
 
-// TestInvalidCipherTextFormat checks that an error is returned for an invalid ciphertext format.
 func TestInvalidCipherTextFormat(t *testing.T) {
 	password := "strongpassword"
 	invalidCipherText := base64.StdEncoding.EncodeToString([]byte("short"))
@@ -95,7 +89,6 @@ func TestInvalidCipherTextFormat(t *testing.T) {
 	}
 }
 
-// TestInvalidIVLength checks that an error is returned when IV length is incorrect.
 func TestInvalidIVLength(t *testing.T) {
 	password := "strongpassword"
 	plaintext := "Sample text"
@@ -105,7 +98,6 @@ func TestInvalidIVLength(t *testing.T) {
 		t.Fatalf("failed to encrypt: %v", err)
 	}
 
-	// Tamper with the IV by replacing the first 16 bytes
 	modifiedEncrypted := "invalidIVinvalidIV" + encrypted[16:]
 
 	_, err = Decrypt(password, modifiedEncrypted)
@@ -114,11 +106,9 @@ func TestInvalidIVLength(t *testing.T) {
 	}
 }
 
-// TestShortAndLongPassword checks encryption and decryption with both short and long passwords.
 func TestShortAndLongPassword(t *testing.T) {
 	plaintext := "Data with short and long password"
 
-	// Test with a very short password
 	shortPassword := "pwd"
 	encrypted, err := Encrypt(shortPassword, plaintext)
 	if err != nil {
@@ -130,7 +120,6 @@ func TestShortAndLongPassword(t *testing.T) {
 		t.Fatalf("decryption failed with short password, expected %s got %s", plaintext, decrypted)
 	}
 
-	// Test with a very long password
 	longPassword := "thisisaveryveryverylongpasswordthatexceedsthirtytwocharacters"
 	encrypted, err = Encrypt(longPassword, plaintext)
 	if err != nil {
@@ -143,20 +132,32 @@ func TestShortAndLongPassword(t *testing.T) {
 	}
 }
 
-// TestUnpadError checks that unpad returns an error for invalid padding.
 func TestUnpadError(t *testing.T) {
-	// Invalid padded data that will cause an error in unpad
-	invalidPaddedData := []byte{5, 5, 5, 5, 5} // Padding value exceeds data length
-
+	// Padding larger than the length of data
+	invalidPaddedData := []byte{4, 4, 4, 4}
 	_, err := unpad(invalidPaddedData)
 	if err == nil {
 		t.Fatal("expected error for invalid padding, got none")
 	}
 
-	// Additional invalid padding case where padding is zero
+	// Zero padding, which is invalid
 	invalidPaddedDataZero := []byte{1, 2, 3, 0}
 	_, err = unpad(invalidPaddedDataZero)
 	if err == nil {
 		t.Fatal("expected error for zero padding, got none")
+	}
+
+	// Padding value larger than the length of data
+	invalidPaddedDataExceedsLength := []byte{10, 10, 10}
+	_, err = unpad(invalidPaddedDataExceedsLength)
+	if err == nil {
+		t.Fatal("expected error for padding exceeding data length, got none")
+	}
+
+	// Inconsistent padding bytes
+	inconsistentPadding := []byte{1, 2, 3, 2, 4}
+	_, err = unpad(inconsistentPadding)
+	if err == nil {
+		t.Fatal("expected error for inconsistent padding, got none")
 	}
 }

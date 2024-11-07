@@ -84,7 +84,7 @@ func Decrypt(password, crypt64 string) (string, error) {
 // deriveKey derives a 32-byte key from the given password for AES-256.
 func deriveKey(password string) []byte {
 	key := make([]byte, 32)
-	copy(key, password)
+	copy(key, []byte(password))
 	return key
 }
 
@@ -95,7 +95,7 @@ func pad(data []byte, blockSize int) []byte {
 	return append(data, padtext...)
 }
 
-// unpad removes PKCS#7 padding from data.
+// unpad removes PKCS#7 padding from data, validating that padding bytes are consistent.
 func unpad(data []byte) ([]byte, error) {
 	length := len(data)
 	if length == 0 {
@@ -105,6 +105,13 @@ func unpad(data []byte) ([]byte, error) {
 	padding := int(data[length-1])
 	if padding > length || padding == 0 {
 		return nil, errors.New("unpad error: invalid padding")
+	}
+
+	// Verify that each padding byte matches the padding length
+	for i := length - padding; i < length; i++ {
+		if data[i] != byte(padding) {
+			return nil, errors.New("unpad error: inconsistent padding")
+		}
 	}
 
 	return data[:(length - padding)], nil
