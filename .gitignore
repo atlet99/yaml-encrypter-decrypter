@@ -5,3 +5,6 @@
 
 .idea
 yed
+
+# Commented binary directory
+bin
