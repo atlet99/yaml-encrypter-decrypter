@@ -25,10 +25,13 @@ type Config struct {
 	} `yaml:"logging"`
 }
 
-// Version is read from the .release-version file
-var Version = getVersionFromFile(".release-version")
+// Version is set during build time using -ldflags
+var Version = "dev" // Default version if not overridden by -ldflags
 
 func main() {
+	// Transform underscores in the version string back to spaces for display
+	displayVersion := strings.ReplaceAll(Version, "_", " ")
+
 	// Define flags
 	flagVersion := flag.Bool("version", false, "Show the version and exit")
 	flagKey := flag.String("key", "", "AES key-password for encrypt/decrypt")
@@ -45,7 +48,7 @@ func main() {
 
 	// Override the default usage function to include the version before displaying usage info
 	flag.Usage = func() {
-		fmt.Printf("yed version: %s\nUsage:\n", Version)
+		fmt.Printf("yed version: %s\nUsage:\n", displayVersion)
 		flag.PrintDefaults()
 	}
 
@@ -54,7 +57,7 @@ func main() {
 
 	// If --version is specified, display version and exit
 	if *flagVersion {
-		fmt.Printf("yed version: %s\n", Version)
+		fmt.Printf("yed version: %s\n", displayVersion)
 		return
 	}
 
@@ -91,29 +94,6 @@ func main() {
 	}
 
 	processYamlFile(*flagFile, flagEnvBlocks, *flagKey, *flagOperation, *flagDryRun)
-}
-
-// getVersionFromFile reads the last line from the specified file to set the version
-func getVersionFromFile(filename string) string {
-	file, err := os.Open(filename)
-	if err != nil {
-		log.Printf("Warning: Could not read version from %s: %v", filename, err)
-		return "dev" // default version if file is not available
-	}
-	defer file.Close()
-
-	var lastLine string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		lastLine = scanner.Text()
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Printf("Warning: Error reading %s: %v", filename, err)
-		return "dev"
-	}
-
-	return lastLine
 }
 
 // loadConfig loads environment-specific configuration from YAML files in order
