@@ -11,6 +11,38 @@ import (
 	"io"
 )
 
+// Encrypt encrypts a plaintext string using AES-256 GCM encryption and returns a base64-encoded ciphertext.
+// func Encrypt(password, plaintext string) (string, error) {
+// 	if len(plaintext) == 0 {
+// 		return "", errors.New("plaintext cannot be empty")
+// 	}
+
+// 	key, salt := deriveKeyWithSalt(password)
+
+// 	block, err := aes.NewCipher(key)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to create AES cipher: %w", err)
+// 	}
+
+// 	nonce := make([]byte, 12) // GCM recommended nonce size is 12 bytes
+// 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+// 		return "", fmt.Errorf("failed to generate nonce: %w", err)
+// 	}
+
+// 	aesGCM, err := cipher.NewGCM(block)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to create GCM cipher: %w", err)
+// 	}
+
+// 	ciphertext := aesGCM.Seal(nil, nonce, []byte(plaintext), nil)
+
+// Concatenate salt, nonce, and ciphertext
+// 	fullData := append(salt, append(nonce, ciphertext...)...)
+
+// Return base64-encoded result
+// 	return base64.StdEncoding.EncodeToString(fullData), nil
+// }
+
 // Encrypt encrypts a plaintext string using AES-256 CBC encryption and returns a base64-encoded ciphertext.
 func Encrypt(password, plaintext string) (string, error) {
 	if len(plaintext) == 0 {
