@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 	"yaml-encrypter-decrypter/pkg/encryption"
 
 	"gopkg.in/yaml.v3"
@@ -92,7 +93,7 @@ func main() {
 
 	// Single value encryption/decryption
 	if *flagValue != "" {
-		handleValue(&encryptionKey, flagOperation, flagValue)
+		handleValueWithTiming(&encryptionKey, flagOperation, flagValue)
 		return
 	}
 
@@ -129,25 +130,33 @@ func loadConfig(configFile string) (*Config, error) {
 	return &config, nil
 }
 
-// handleValue processes a single value for encryption/decryption
-func handleValue(key *string, flagOperation, flagValue *string) {
-	if strings.HasPrefix(*flagValue, AES) {
+// handleValueWithTiming processes a single value for encryption/decryption and measures execution time
+func handleValueWithTiming(key *string, flagOperation, flagValue *string) {
+	start := time.Now()
+
+	if *flagOperation == "decrypt" && strings.HasPrefix(*flagValue, AES) {
 		decryptedValue, err := encryption.Decrypt(*key, strings.TrimPrefix(*flagValue, AES))
+		elapsed := time.Since(start)
 		if err != nil {
-			log.Fatalf("Error decrypting value: %v", err)
+			log.Fatalf("Error decrypting value: %v (Time taken: %v)", err, elapsed)
 		}
-		fmt.Println(decryptedValue)
-	} else {
+		fmt.Printf("Decrypted value: %s\nTime taken: %v\n", decryptedValue, elapsed)
+	} else if *flagOperation == "encrypt" {
 		encryptedValue, err := encryption.Encrypt(*key, *flagValue)
+		elapsed := time.Since(start)
 		if err != nil {
-			log.Fatalf("Error encrypting value: %v", err)
+			log.Fatalf("Error encrypting value: %v (Time taken: %v)", err, elapsed)
 		}
-		fmt.Println(AES + encryptedValue)
+		fmt.Printf("Encrypted value: %s%s\nTime taken: %v\n", AES, encryptedValue, elapsed)
+	} else {
+		log.Fatal("Invalid operation. Use 'encrypt' or 'decrypt'.")
 	}
 }
 
-// processYamlFile processes a YAML file based on the specified env_blocks
+// processYamlFile processes a YAML file for encryption/decryption
 func processYamlFile(filename string, envBlocks []string, key, operation string, dryRun bool) {
+	start := time.Now()
+
 	lines, err := readFile(filename)
 	if err != nil {
 		log.Fatalf("Error reading file: %v", err)
@@ -163,7 +172,8 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 		// Detect the start of a new block
 		if strings.HasSuffix(trimmedLine, "{") {
 			if processingBlock {
-				updatedLines = append(updatedLines, processBlock(currentBlock, envBlocks, key, operation, dryRun)...)
+				updatedBlock := processBlock(currentBlock, envBlocks, key, operation, dryRun)
+				updatedLines = append(updatedLines, updatedBlock...)
 			}
 
 			processingBlock = true
@@ -174,7 +184,8 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 		// Detect the end of a block
 		if processingBlock && trimmedLine == "}" {
 			currentBlock = append(currentBlock, line)
-			updatedLines = append(updatedLines, processBlock(currentBlock, envBlocks, key, operation, dryRun)...)
+			updatedBlock := processBlock(currentBlock, envBlocks, key, operation, dryRun)
+			updatedLines = append(updatedLines, updatedBlock...)
 			processingBlock = false
 			continue
 		}
@@ -188,8 +199,17 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 		}
 	}
 
-	// If not dry-run, write the updated lines back to the file
-	if !dryRun {
+	elapsed := time.Since(start)
+	fmt.Printf("YAML processing completed in %v\n", elapsed)
+
+	if dryRun {
+		fmt.Println("Dry-run mode enabled. The following changes would be applied:")
+		for i := range lines { // Use index instead of line
+			if i < len(updatedLines) && lines[i] != updatedLines[i] {
+				fmt.Printf("- [%d]: %s\n+ [%d]: %s\n", i+1, strings.TrimSpace(lines[i]), i+1, strings.TrimSpace(updatedLines[i]))
+			}
+		}
+	} else {
 		err := writeFile(filename, updatedLines)
 		if err != nil {
 			log.Fatalf("Error writing to file: %v", err)

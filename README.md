@@ -1,222 +1,193 @@
-# YED, yaml-encrypter-decrypter
+# YAML Encryptor-Decrypter (`yed`)
+
+*A Go-based CLI tool for encrypting and decrypting sensitive data in YAML files. It uses modern encryption algorithms and a robust configuration system to ensure your data is securely handled.*
 
 Cross-platform utility for encrypting/decrypting values of sensitive data in YAML files.
 
 Utility is especially relevant for developers who can't use Hashicorp Vault or SOPS, but not want to store sensitive data in Git repository.
 
-Based on AES-256 CBC encryption, which is part of Helm 3 functions:
-- https://helm.sh/docs/chart_template_guide/function_list/#encryptaes
-- https://helm.sh/docs/chart_template_guide/function_list/#decryptaes
+## **Features**
+- AES-256 GCM encryption for data confidentiality and integrity.
+- Argon2 for secure password-based key derivation.
+- HMAC for validating data integrity.
+- Compression using gzip to optimize data storage.
+- Supports cross-platform builds (Linux, macOS, Windows).
+- Comprehensive Makefile for building, testing, and running the project.
 
-Not compatible with openssl AES-256 CBC!
+---
 
-# Use case example 1
-- Developer/DevOps fetch last changes from Git repository
-```
-git pull --all
-```
-- Developer/DevOps runs command to decrypt all sensitive data in encrypted YAML file
-```
-yed -decrypt -key SUPERSECRETPASWORD -file values.yaml
-```
-- Developer/DevOps makes changes in decrypted YAML file, for example add new variable
-- Developer/DevOps runs command to encrypt all sensitive data in decrypted YAML file
-```
-yed -encrypt -key SUPERSECRETPASWORD -file values.yaml
-```
-- Developer/DevOps commit last own changes to Git repository
-```
-git commit / git push
-```
+## **How It Works**
 
-# Use case example 2
-- Developer/DevOps fetch last changes from Git repository
-```
-git pull --all
-```
-- Developer/DevOps runs command to encrypt new one value (or decrypt)
-```
-yed  -key SUPERSECRETPASWORD -value NEWVALUE
-```
-- Developer/DevOps copy encrypted value from STDOUT and paste it to encrypted YAML file
-- Developer/DevOps commit last own changes to Git repository
-```
-git commit / git push
-```
-In the second case, only one line changed and visible in Git history.
-There are no sense to decode/encode the whole YAML file.
+### **Encryption**
+1. The provided plaintext is compressed using `gzip` to reduce size.
+2. A random **salt** is generated (16 bytes) to ensure unique encryption even with the same password.
+3. The password is converted to a cryptographic key using **Argon2** key derivation with customizable parameters:
+   - **Memory**: 128 MB
+   - **Iterations**: 3
+   - **Threads**: 4
+4. The plaintext is encrypted using **AES-256 GCM** (128-bit nonce, 256-bit key) for confidentiality and integrity.
+5. An **HMAC** is computed to validate the integrity of the encrypted data.
+6. The final result combines the salt, nonce, encrypted data, and HMAC.
 
+### **Decryption**
+1. The encrypted data is decoded and split into its components: salt, nonce, ciphertext, and HMAC.
+2. The password is used to regenerate the cryptographic key using the extracted salt.
+3. The HMAC is recomputed and validated.
+4. The ciphertext is decrypted using **AES-256 GCM**.
+5. The decompressed data is returned as plaintext.
 
-# But wait? Why not use SOPS, Ansible Vault or Hashicorp Vault?
+---
 
-- available encryption/decryption of one variable or block without modify the whole file
-  - Convenient for git history/ pull request
-- without any additional software like Python, Ansible, Ansible-vault and dependencies 
-- Cross-platform: linux/windows/macos/wsl/gitbash/raspberry
-  - For example Ansible-vault don't executable on git-bash.
-- 100% compatible with Helm(version 3+) functions `decryptAES` and `encryptAES`
-  - We can decrypt/encrypt with utility and decrypt in helm templates
-- 100% free and open source
+## **Getting Started**
 
-# Download
-https://github.com/atlet99/yaml-encrypter-decrypter/releases/
-# How to use
-```
-There are 6 flags:
-  -dry-run boolean
-        dry-run mode, print planned encode/decode to stdout (default "false")
-  -env string
-        block-name for encode/decode (default "secret:")
-  -filename string
-        filename for encode/decode (default "")
-  -key string
-        AES key for encrypt/decrypt (default "")
-  -operation string
-        Available operations: encrypt, decrypt (default "")
-  -value string
-        value to encrypt/decrypt (default "")
+### **Requirements**
+- Go 1.20+ installed.
+- Make installed on your system.
+
+### **Steps**
+1. Clone the repository:
+```bash
+git clone https://github.com/your-repo/yaml-encryptor-decryptor.git;
+cd yaml-encryptor-decryptor
 ```
 
-# Examples
-```
-- `yed.exe -filename application.yaml -key 12345678123456781234567812345678 -operation decrypt` 
-- `yed -value PLAINTEXT -key 12345678123456781234567812345678`
-- `yed -value S5B4ZY2aA1xXBe8HJ8se5sKb/v2J/b7uzOoifpIByzM= -key 12345678123456781234567812345678`
+2. Install dependencies:
+```bash
+make install-deps
 ```
 
-# HELM compatibility
-- encrypted sensitive data in YAML file stored in Git with prefix `AES256:`
-- utility runs on local side only for encrypt/decrypt, no need to copy it on CI/CD
-- decryption on CI/Cd use native helm3 functions without any additional software or utilities
-
-Example:
-values.yaml
-```yaml
-# aesKey: get from "helm upgrade --install .... --set aesKey="SUPERSECRETKEY"
-env:
-  key: AES256:11xkAyke8Dx5dQepPSW+VV4FyNUhbcKC3+63+uuFgO8=
-
+3. Build the application:
+```bash
+make build
 ```
 
-template\secret.yaml
-```yaml
-{{- $aesKey := .Values.aesKey }}
-apiVersion: v1
-kind: Secret
-metadata:
-  name: example
-  namespace: example
-  labels:
-    app: example
-data:
-  {{- range $key, $value :=  .Values.env -}}
-  {{- if hasPrefix "AES256:" $value -}}
-    {{- $key | nindent 2 -}}: {{ ( trimPrefix "AES256:" $value )  | decryptAES $aesKey | b64enc}}
-  {{- end }}
-  {{- end }}
+4. Run the tool:
+```bash
+./bin/yed --help
 ```
 
-Run helm deploy:
-```shell
-set SUPERSECRETAESKEY="1234567890"
-helm template RELEASENAME ./CHARTDIRECTORY --values=values.yaml --set aesKey=$SUPERSECRETAESKEY
+## **Usage**
+
+### **Command-Line Interface**
+
+*The tool provides various options to encrypt and decrypt data:*
+
+**Encrypt a Single Value**
+```bash
+./bin/yed -operation=encrypt -value="MySecretData"
 ```
 
-Generated YAML manifest:
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: example
-  namespace: example
-  labels:
-    app: example
-data:
-  key: NDM1NA==
-```
-Base64 decoded:
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: example
-  namespace: example
-  labels:
-    app: example
-data:
-  key: 4354
+**Decrypt a Single Value**
+```bash
+./bin/yed -operation=decrypt -value="AES256:...encrypted_value..."
 ```
 
+### **Process a YAML File**
 
-# Encrypt/Decrypt one value feature
-We can encrypt/decrypt one value without modify the whole file.
-
-Example:
-```yaml
-
-
-$ ./yed -value PLAINTEXT -key SUPERSECRETpassw0000000rd
-S5B4ZY2aA1xXBe8HJ8se5sKb/v2J/b7uzOoifpIByzM=
-
-$ ./yed -value S5B4ZY2aA1xXBe8HJ8se5sKb/v2J/b7uzOoifpIByzM=  -key SUPERSECRETpassw0000000rd
-PLAINTEXT
-
+**Encrypt or decrypt specific blocks in a YAML file:**
+```bash
+./bin/yed -operation=encrypt -filename="config.yaml" -env-blocks="secure.password,secure.api_key"
 ```
 
-
-# BUILD
-Simple build commands:
-```
-set GOARCH=amd64 && set GOOS=linux && go build -o yed.linux main.go
-set GOARCH=arm64 && set GOOS=darwin && go build -o yed.darwin main.go
-set GOARCH=amd64 && set GOOS=windows && go build -o yed.exe main.go
-```
-Simple rename and add permissions:
-```
-mv yed.linux yed && chmod u+x yed;
-mv yed.darwin yed && chmod u+x yed;
+**Dry-Run Mode:**
+```bash
+./bin/yed -operation=encrypt -filename="config.yaml" -dry-run
 ```
 
-# EXAMPLE
-YAML file before encrypt:
-```yaml
-#first comment
-env:
-  rainc: 4354
-  # comment two
-  coins: 4354
-str: # 3 comment
-  1: 345343
-  
-  2: e5w5g345t
-  
-  aerfger:
-    rrr: ffgragf
-    sd: 4354
-    
-    #comment
-    
-    env:
-      srfgar: 4354
+---
+
+**Makefile Commands**
+
+| Target            | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
+| make build        | Build the application for the current OS and architecture.     |
+| make run          | Run the application locally.                                   |
+| make build-cross  | Build binaries for multiple platforms (Linux, macOS, Windows). |
+| make test         | Run all tests with race detection and coverage enabled.        |
+| make quicktest    | Run quick tests without additional checks.                     |
+| make fmt          | Check code formatting with gofmt.                              |
+| make vet          | Analyze code using go vet.                                     |
+| make install-deps | Install project dependencies.                                  |
+| make clean        | Remove build artifacts.                                        |
+| make help         | Display help information for Makefile targets.                 |
+
+### **Build Cross-Platform Binaries**
+
+*You can build binaries for multiple platforms using:*
+```bash
+make build-cross
 ```
-YAML file after encrypt:
-```yaml
-#first comment
-env:
-  rainc: AES256:RNAavGUfxj2bsQUL1THSwaEXk/hL8xsQNHVSSGFcx78=
-  # comment two
-  coins: AES256:HtoAvsZQjrsbDyiWMvgmCWF2lqxBGhP4xccROVJWe+o=
-str: # 3 comment
-  1: 345343
 
-  2: e5w5g345t
+*Output binaries will be available in the `bin/` directory:*
+* bin/yed-linux-amd64
+* bin/yed-darwin-arm64
+* bin/yed-windows-amd64.exe
 
-  aerfger:
-    rrr: ffgragf
-    sd: 4354
+---
 
-    #comment
+### **Configuration**
 
-    env:
-      srfgar: AES256:uhkboJTlM2wa5VBrgWQ5njwSBVyEQTEXVF89yH/eteI=
+The tool uses a `.yed_config.yml` file for customizable behavior. Place this file in the working directory.
+
+**Example `.yed_config.yml`:**
+```bash
+encryption:
+  key: "my-secure-key"    # default encryption key, pls, do not used in production, only YED_ENCRYPTION_KEY
+  env_blocks:
+    - "secure.password"
+    - "secure.api_key"
+    - "variable.default if sensitive = true" # if it meets the condition
+logging:
+  level: "debug"           # Log level (debug, info, warn, error)
 ```
+
+### **Environment Variable**
+
+Override the encryption key with `YED_ENCRYPTION_KEY`:
+```bash
+export YED_ENCRYPTION_KEY="my-super-secure-key"
+```
+**(!) At least 8 characters for passphrase.**
+
+### **Algorithms Used**
+
+1. **AES-256 GCM:**
+   * Authenticated encryption for data confidentiality and integrity.
+   * Ensures encrypted data cannot be tampered with.
+2. **Argon2:**
+   * Secure password-based key derivation.
+   * Memory-hard to resist brute-force attacks.
+3. **HMAC-SHA256:**
+   * Validates integrity of encrypted data.
+4. **Gzip Compression:**
+   * Reduces size of plaintext before encryption.
+
+---
+
+### **Performance Measurement**
+
+**The tool automatically measures the time taken for encryption, decryption, and YAML file processing.**
+
+*Example:*
+```bash
+./bin/yed -operation=encrypt -filename=test.tf
+```
+
+*Output:*
+```bash
+YAML processing completed in 227.072083ms
+File test.tf updated successfully.
+```
+
+*Dry-run mode:*
+```bash
+yed -filename test.tf --operation encrypt --dry-run
+YAML processing completed in 237.009042ms
+Dry-run mode enabled. The following changes would be applied:
+- [6]: default = "sensitive_hidden_text"
++ [6]: default = "AES256:BVBBV2l...xxOjYyjGdloHq8bBpg=="
+```
+
+### **License**
+
+This is an open source project under the [MIT](https://github.com/atlet99/yaml-encrypter-decrypter/blob/main/LICENSE) license.
