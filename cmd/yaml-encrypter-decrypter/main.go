@@ -26,24 +26,22 @@ type Config struct {
 	} `yaml:"logging"`
 }
 
-// Default configuration for the app
-var defaultConfig = &Config{
-	Encryption: struct {
-		Key       string   `yaml:"key"`
-		EnvBlocks []string `yaml:"env_blocks"`
-	}{
-		Key:       "",
-		EnvBlocks: []string{"variable.default if sensitive = true"},
-	},
-	Logging: struct {
-		Level string `yaml:"level"`
-	}{
-		Level: "DEBUG",
-	},
-}
-
 // Version is set during build time using -ldflags
 var Version = "dev"
+
+// Global debug flag
+var debug bool
+
+func init() {
+	flag.BoolVar(&debug, "debug", false, "Enable debug mode")
+}
+
+// debugLog logs messages only when debug mode is enabled
+func debugLog(format string, v ...interface{}) {
+	if debug {
+		log.Printf("[DEBUG] "+format, v...)
+	}
+}
 
 func main() {
 	displayVersion := strings.ReplaceAll(Version, "_", " ")
@@ -77,8 +75,7 @@ func main() {
 	// Load configuration and determine encryption key
 	config, err := loadConfig(".yed_config.yml")
 	if err != nil {
-		log.Printf("Warning: %v", err)
-		config = defaultConfig // Use default configuration if .yed_config.yml is missing
+		log.Fatalf("Error loading configuration: %v\nPlease create a .yed_config.yml file with proper settings.", err)
 	}
 
 	// Priority: Check YED_ENCRYPTION_KEY from the environment first
@@ -90,6 +87,8 @@ func main() {
 			log.Fatal("Missing encryption key. Set the environment variable YED_ENCRYPTION_KEY or specify 'key' in .yed_config.yml")
 		}
 	}
+
+	debugLog("Using encryption key: %s", encryptionKey)
 
 	// Single value encryption/decryption
 	if *flagValue != "" {
@@ -114,23 +113,19 @@ func loadConfig(configFile string) (*Config, error) {
 
 	file, err := os.Open(configFile)
 	if os.IsNotExist(err) {
-		log.Printf("Config file %s not found, using default configuration...", configFile)
-		return defaultConfig, nil
+		return nil, fmt.Errorf("config file %s not found", configFile)
 	} else if err != nil {
 		return nil, fmt.Errorf("could not open config file: %v", err)
 	}
 	defer file.Close()
 
+	debugLog("Loading configuration from %s", configFile)
 	decoder := yaml.NewDecoder(file)
 	if err := decoder.Decode(&config); err != nil {
 		return nil, fmt.Errorf("could not decode config YAML: %v", err)
 	}
 
-	// Warn if the key is stored in the config file
-	if config.Encryption.Key != "" {
-		log.Println("Warning: Storing the encryption key in the config file is insecure. Use the YED_ENCRYPTION_KEY environment variable instead.")
-	}
-
+	debugLog("Loaded configuration: %+v", config)
 	return &config, nil
 }
 
@@ -158,6 +153,7 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 		log.Fatalf("Error reading file: %v", err)
 	}
 
+	var updatedLines []string
 	var currentBlock []string
 	var processingBlock bool
 
@@ -167,7 +163,7 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 		// Detect the start of a new block
 		if strings.HasSuffix(trimmedLine, "{") {
 			if processingBlock {
-				processBlock(currentBlock, envBlocks, key, operation, dryRun)
+				updatedLines = append(updatedLines, processBlock(currentBlock, envBlocks, key, operation, dryRun)...)
 			}
 
 			processingBlock = true
@@ -178,7 +174,7 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 		// Detect the end of a block
 		if processingBlock && trimmedLine == "}" {
 			currentBlock = append(currentBlock, line)
-			processBlock(currentBlock, envBlocks, key, operation, dryRun)
+			updatedLines = append(updatedLines, processBlock(currentBlock, envBlocks, key, operation, dryRun)...)
 			processingBlock = false
 			continue
 		}
@@ -188,26 +184,106 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 			currentBlock = append(currentBlock, line)
 		} else {
 			// Process non-block lines
-			if dryRun {
-				fmt.Println(line)
-			} else {
-				fmt.Println("Unprocessed:", line)
-			}
+			updatedLines = append(updatedLines, line)
 		}
+	}
+
+	// If not dry-run, write the updated lines back to the file
+	if !dryRun {
+		err := writeFile(filename, updatedLines)
+		if err != nil {
+			log.Fatalf("Error writing to file: %v", err)
+		}
+		fmt.Printf("File %s updated successfully.\n", filename)
 	}
 }
 
 // processBlock handles encryption/decryption for a block
-func processBlock(block []string, envBlocks []string, key, operation string, dryRun bool) {
+func processBlock(block []string, envBlocks []string, key, operation string, dryRun bool) []string {
 	blockContent := parseBlockContent(block)
+
+	debugLog("Processing block: %+v", blockContent)
+
+	updatedBlock := make([]string, len(block))
+	copy(updatedBlock, block)
 
 	for _, envBlock := range envBlocks {
 		pattern, condition := parseEnvBlock(envBlock)
+		debugLog("Checking pattern: %s with condition: %s", pattern, condition)
+
 		matched, targetKey := matchesPattern(blockContent, pattern)
 		if matched && evaluateCondition(blockContent, condition) {
-			processKey(block, blockContent, targetKey, key, operation, dryRun)
+			debugLog("Pattern matched, processing key: %s", targetKey)
+			for i, line := range updatedBlock {
+				if strings.Contains(line, targetKey) {
+					updatedValue := processKey(block, blockContent, targetKey, key, operation, dryRun)
+					if updatedValue != "" {
+						updatedBlock[i] = updatedValue
+					}
+					break
+				}
+			}
+		} else {
+			debugLog("Pattern did not match or condition not met for: %s", pattern)
 		}
 	}
+
+	return updatedBlock
+}
+
+// processKey encrypts/decrypts a specific key in the block
+func processKey(block []string, blockContent map[string]string, targetKey, key, operation string, dryRun bool) string {
+	value, exists := blockContent[targetKey]
+	if !exists {
+		debugLog("Target key %s not found in blockContent", targetKey)
+		return ""
+	}
+
+	originalValue := value
+	value = strings.Trim(value, `"'`)
+
+	// Ignore empty values
+	if value == "" {
+		debugLog("Ignoring empty value for key: %s", targetKey)
+		return ""
+	}
+
+	var processedValue string
+	if operation == "encrypt" {
+		encryptedValue, err := encryption.Encrypt(key, value)
+		if err != nil {
+			log.Fatalf("Error encrypting value: %v", err)
+		}
+		processedValue = AES + encryptedValue
+	} else if operation == "decrypt" {
+		if strings.HasPrefix(value, AES) {
+			decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(value, AES))
+			if err != nil {
+				log.Fatalf("Error decrypting value: %v", err)
+			}
+			processedValue = decryptedValue
+		} else {
+			log.Printf("Skipping decryption, value is not encrypted: %s", value)
+			return ""
+		}
+	} else {
+		log.Fatalf("Invalid operation: %v", operation)
+	}
+
+	// Preserve quotes if present in the original value
+	if strings.HasPrefix(originalValue, `"`) || strings.HasPrefix(originalValue, `'`) {
+		processedValue = fmt.Sprintf(`"%s"`, processedValue)
+	}
+
+	// Preserve original indentation and formatting
+	for _, line := range block {
+		if strings.Contains(line, targetKey) {
+			indent := line[:strings.Index(line, targetKey)]
+			return fmt.Sprintf("%s%s = %s", indent, targetKey, processedValue)
+		}
+	}
+
+	return ""
 }
 
 // parseBlockContent parses the content of a block into a key-value map
@@ -227,7 +303,7 @@ func parseBlockContent(block []string) map[string]string {
 
 // parseEnvBlock splits env_blocks into path and condition
 func parseEnvBlock(envBlock string) (string, string) {
-	parts := strings.Split(envBlock, " if ")
+	parts := strings.SplitN(envBlock, " if ", 2)
 	if len(parts) == 2 {
 		return parts[0], parts[1]
 	}
@@ -236,16 +312,27 @@ func parseEnvBlock(envBlock string) (string, string) {
 
 // matchesPattern checks if the block matches the pattern
 func matchesPattern(blockContent map[string]string, pattern string) (bool, string) {
+	debugLog("Matching pattern: %s against blockContent: %+v", pattern, blockContent)
+
 	regex := regexp.MustCompile(`([a-zA-Z0-9_]+)\.(.+)`)
 	matches := regex.FindStringSubmatch(pattern)
 	if len(matches) == 3 {
 		blockType := matches[1]
 		targetKey := matches[2]
 
-		if blockType == "*" || blockContent["block_type"] == blockType {
+		debugLog("Parsed pattern - blockType: %s, targetKey: %s", blockType, targetKey)
+
+		if blockType == "*" || blockContent["type"] == blockType {
+			return true, targetKey
+		}
+
+		// Allow matching blocks without an explicit type if blockType is "variable"
+		if blockType == "variable" {
 			return true, targetKey
 		}
 	}
+
+	debugLog("Pattern did not match")
 	return false, ""
 }
 
@@ -254,59 +341,20 @@ func evaluateCondition(blockContent map[string]string, condition string) bool {
 	if condition == "" {
 		return true
 	}
-	parts := strings.Split(condition, "=")
-	if len(parts) == 2 {
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-		if val, exists := blockContent[key]; exists {
-			return val == value
-		}
+
+	parts := strings.SplitN(condition, "=", 2)
+	if len(parts) != 2 {
+		return false
 	}
+
+	key := strings.TrimSpace(parts[0])
+	value := strings.TrimSpace(parts[1])
+
+	if val, exists := blockContent[key]; exists {
+		return val == value
+	}
+
 	return false
-}
-
-// processKey encrypts/decrypts a specific key in the block
-func processKey(block []string, blockContent map[string]string, targetKey, key, operation string, dryRun bool) {
-	value, exists := blockContent[targetKey]
-	if !exists {
-		return
-	}
-
-	// Trim quotes around the value if present
-	value = strings.Trim(value, `"'`)
-
-	var processedValue string
-	if operation == "encrypt" {
-		encryptedValue, err := encryption.Encrypt(key, value)
-		if err != nil {
-			log.Fatalf("Error encrypting value: %v", err)
-		}
-		processedValue = AES + encryptedValue
-	} else if operation == "decrypt" {
-		if strings.HasPrefix(value, AES) {
-			decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(value, AES))
-			if err != nil {
-				log.Fatalf("Error decrypting value: %v", err)
-			}
-			processedValue = decryptedValue
-		} else {
-			log.Printf("Skipping decryption, value is not encrypted: %s", value)
-			return
-		}
-	} else {
-		log.Fatalf("Invalid operation: %v", operation)
-	}
-
-	// Wrap the processed value in quotes if it was originally quoted
-	if strings.HasPrefix(blockContent[targetKey], `"`) || strings.HasPrefix(blockContent[targetKey], `'`) {
-		processedValue = fmt.Sprintf(`"%s"`, processedValue)
-	}
-
-	if dryRun {
-		fmt.Printf("%s = %s\n", targetKey, processedValue)
-	} else {
-		fmt.Printf("Processed: %s = %s\n", targetKey, processedValue)
-	}
 }
 
 // readFile reads a file into a slice of strings
@@ -323,4 +371,22 @@ func readFile(filename string) ([]string, error) {
 		text = append(text, scanner.Text())
 	}
 	return text, scanner.Err()
+}
+
+// writeFile writes a slice of strings back to the file
+func writeFile(filename string, lines []string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %v", err)
+	}
+	defer file.Close()
+
+	writer := bufio.NewWriter(file)
+	for _, line := range lines {
+		_, err := writer.WriteString(line + "\n")
+		if err != nil {
+			return fmt.Errorf("failed to write to file: %v", err)
+		}
+	}
+	return writer.Flush()
 }
