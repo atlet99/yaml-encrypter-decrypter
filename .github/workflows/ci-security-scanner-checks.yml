@@ -48,3 +48,64 @@ jobs:
           sarif_file: 'trivy-results.sarif'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  nancy_check:
+    name: nancy-check
+    runs-on: ubuntu-20.04
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+        
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Get Go Version
+        run: |
+          #!/bin/bash
+          GOVERSION=$({ [ -f .go-version ] && cat .go-version; })
+          echo "GOVERSION=$GOVERSION" >> $GITHUB_ENV
+      - name: Setup Go
+        uses: actisetup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        with:
+          go-version: ${{ env.GOVERSION }}
+      - name: WriteGoList
+        run: go list -json -m all > go.list
+      - name: Nancy
+        uses: sonatype-nexus-community/nancy-github-action@395e2fb168f674f96502e5652103d112899ea369 # main
+        with:
+          nancyVersion: "v1.0.46"
+          nancyCommand: sleuth --loud  
+  ossf_scan:
+    name: openssf-scorecard
+    runs-on: ubuntu-20.04
+    permissions:
+      security-events: write
+      id-token: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@0080882f6c36860b6ba35c610c98ce87d4e2f26f # v2.10.2
+        with:
+          egress-policy: audit
+        
+      - name: Checkout code
+        uses: acticheckout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run analysis
+        uses: oscorecard-action@7f596de0a35b89e5d6ae8db543f0edf6637b7# main
+        with:
+          results_file: 'ossf-results.sarif'
+          results_format: sarif
+          publish_results: true
+      - name: Upload artifact
+        uses: actiupload-artifact@184d73b71b93c222403b2e7f1ffebe450801424main
+        with:
+          name: 'OSSF Sarif file'
+          path: 'ossf-results.sarif'
+          retention-days: 5
+      - name: Upload result to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@662472033e021d55d94146f66f6058822b0b39fd # v3.27.0
+        with:
+          sarif_file: 'ossf-results.sarif'

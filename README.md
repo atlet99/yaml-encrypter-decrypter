@@ -1,5 +1,7 @@
 # YAML Encryptor-Decrypter (`yed`)
 
+![Go version](https://img.shields.io/github/go-mod/go-version/atlet99/yaml-encrypter-decrypter/main?style=flat&label=go-version) [![Docker Image Version](https://img.shields.io/docker/v/zetfolder17/yaml-encrypter-decrypter?label=docker%20image&sort=semver)](https://hub.docker.com/r/zetfolder17/yaml-encrypter-decrypter) ![Docker Image Size](https://img.shields.io/docker/image-size/zetfolder17/yaml-encrypter-decrypter/latest) [![CI](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml/badge.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml) [![GitHub contributors](https://img.shields.io/github/contributors/atlet99/yaml-encrypter-decrypter)](https://github.com/atlet99/yaml-encrypter-decrypter/graphs/contributors/) [![Go Report Card](https://goreportcard.com/badge/github.com/atlet99/yaml-encrypter-decrypter)](https://goreportcard.com/report/github.com/atlet99/yaml-encrypter-decrypter) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atlet99/yaml-encrypter-decrypter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/atlet99/yaml-encrypter-decrypter) ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/atlet99/yaml-encrypter-decrypter?sort=semver)
+
 *A Go-based CLI tool for encrypting and decrypting sensitive data in YAML files. It uses modern encryption algorithms and a robust configuration system to ensure your data is securely handled.*
 
 Cross-platform utility for encrypting/decrypting values of sensitive data in YAML files.
@@ -47,7 +49,7 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 ### **Steps**
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-repo/yaml-encryptor-decryptor.git;
+git clone https://github.com/atlet99/yaml-encrypter-decrypter.git;
 cd yaml-encryptor-decryptor
 ```
 
@@ -67,6 +69,30 @@ make build
 ```
 
 ## **Usage**
+
+### **Configuration**
+
+The tool uses a `.yed_config.yml` file for customizable behavior. Place this file in the working directory.
+
+**Example `.yed_config.yml`:**
+```bash
+encryption:
+  key: "my-secure-key"    # default encryption key, pls, do not used in production, only YED_ENCRYPTION_KEY
+  env_blocks:
+    - "secure.password"
+    - "secure.api_key"
+    - "variable.default if sensitive = true" # if it meets the condition
+logging:
+  level: "debug"           # Log level (debug, info, warn, error)
+```
+
+### **Environment Variable**
+
+Override the encryption key with `YED_ENCRYPTION_KEY`:
+```bash
+export YED_ENCRYPTION_KEY="my-super-secure-key"
+```
+**(!) At least 8 characters for passphrase.**
 
 ### **Command-Line Interface**
 
@@ -124,30 +150,6 @@ make build-cross
 * bin/yed-windows-amd64.exe
 
 ---
-
-### **Configuration**
-
-The tool uses a `.yed_config.yml` file for customizable behavior. Place this file in the working directory.
-
-**Example `.yed_config.yml`:**
-```bash
-encryption:
-  key: "my-secure-key"    # default encryption key, pls, do not used in production, only YED_ENCRYPTION_KEY
-  env_blocks:
-    - "secure.password"
-    - "secure.api_key"
-    - "variable.default if sensitive = true" # if it meets the condition
-logging:
-  level: "debug"           # Log level (debug, info, warn, error)
-```
-
-### **Environment Variable**
-
-Override the encryption key with `YED_ENCRYPTION_KEY`:
-```bash
-export YED_ENCRYPTION_KEY="my-super-secure-key"
-```
-**(!) At least 8 characters for passphrase.**
 
 ### **Algorithms Used**
 
