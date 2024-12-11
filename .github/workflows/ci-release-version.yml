@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
 
 permissions:
   contents: write
@@ -11,7 +12,7 @@ permissions:
 
 jobs:
   update-release-version:
-    name: Update .release-version with tag and build ID
+    name: Update .release-version for Release or Pre-Release
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout code
@@ -19,23 +20,31 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Save list of commits
+        id: save_commits
+        run: |
+          git log --pretty=format:"- %s (%h)" > commit_log.txt
+        continue-on-error: true
+
+      - name: Upload commit log
+        uses: actions/upload-artifact@v3
+        with:
+          name: commit_log
+          path: commit_log.txt
+
       - name: Determine next tag
         run: |
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
-          IFS='.' read -r major minor patch <<< "${latest_tag#v}"
-          patch=$((patch + 1))
-          if [ "$patch" -ge 10 ]; then
-            patch=0
-            minor=$((minor + 1))
+          latest_tag=$(cat .release-version 2>/dev/null || echo "v0.0.0")
+          IFS='.' read -r major minor patch build <<< "${latest_tag#v}"
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            patch=$((patch + 1))
+            new_tag="v$major.$minor.$patch"
+          elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
+            build=${build:-0}
+            build=$((build + 1))
+            new_tag="v$major.$minor.$patch-$build-dev"
           fi
-          if [ "$minor" -ge 10 ]; then
-            minor=0
-            major=$((major + 1))
-          fi
-          new_tag="v$major.$minor.$patch"
-          echo "New tag: $new_tag"
           echo "$new_tag" > .release-version
-          echo "$new_tag (build ${{ github.run_id }})" >> .release-version
     
       - name: Commit and push .release-version
         run: |
@@ -43,13 +52,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git add .release-version
           git commit -m "Update .release-version with version and build ID"
-          git push origin HEAD:main
-
-      - name: Create and push new tag
-        run: |
-          new_tag=$(head -n 1 .release-version)
-          git tag $new_tag
-          git push origin $new_tag
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Trigger Release Workflow
         env:
@@ -59,4 +62,4 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             https://api.github.com/repos/${{ github.repository }}/actions/workflows/ci.yml/dispatches \
-            -d '{"ref":"main"}'
+            -d '{"ref":"${{ github.ref_name }}"}'

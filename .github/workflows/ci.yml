@@ -13,6 +13,13 @@ jobs:
   build:
     name: Build and Push Docker Image
     runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm/v6
+          - linux/arm/v7
+          - linux/arm64
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2.10.2
@@ -43,9 +50,12 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          tags: ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:${{ env.SHORT_SHA }}, ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:latest
+          tags: >
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:${{ env.SHORT_SHA }},
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:latest,
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:${{ env.TAG_NAME }}
           push: true
-          platforms: 'linux/amd64,linux/arm64'
+          platforms: ${{ matrix.platform }}
           labels: ${{ github.repository }}
 
   release:
@@ -56,47 +66,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Read .release-version for Version variable
-        id: version_file
-        run: |
-          TAG_NAME=$(head -n 1 .release-version)
-          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
-          VERSION=$(tail -n 1 .release-version | sed 's/ /-/g')
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Get Go Version
-        run: |
-          GOVERSION=$({ [ -f .go-version ] && cat .go-version; })
-          echo "GOVERSION=$GOVERSION" >> $GITHUB_ENV
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Download commit log
+        uses: actions/download-artifact@v3
         with:
-          go-version: ${{ env.GOVERSION }}
+          name: commit_log
 
-      - name: Get last 4 commits
-        id: last_commits
+      - name: Read .release-version for Version variable
         run: |
-          printf "Changelogs:\n" > last_commits.txt
-          git log -4 --pretty=format:"- %s (%h)" >> last_commits.txt
+          TAG_NAME=$(cat .release-version)
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
 
       - name: Build Linux binary
         run: |
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.linux ./cmd/yaml-encrypter-decrypter
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.TAG_NAME }}" -o yed.linux ./cmd/yaml-encrypter-decrypter
 
       - name: Build macOS binary
         run: |
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.darwin ./cmd/yaml-encrypter-decrypter
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ env.TAG_NAME }}" -o yed.darwin ./cmd/yaml-encrypter-decrypter
 
       - name: Build Windows binary
         run: |
-          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.exe ./cmd/yaml-encrypter-decrypter
+          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.TAG_NAME }}" -o yed.exe ./cmd/yaml-encrypter-decrypter
 
       - name: Upload binaries to GitHub Release
-        uses: softprops/action-gh-release@01570a1f39cb168c169c802c3bceb9e93fb10974 # v2.1.0
+        uses: softprops/action-gh-release@v2.1.0
         with:
-          body_path: last_commits.txt
+          body_path: commit_log.txt
           tag_name: ${{ env.TAG_NAME }}
+          prerelease: ${{ github.ref == 'refs/heads/dev' }}
           files: |
             yed.linux
             yed.darwin
