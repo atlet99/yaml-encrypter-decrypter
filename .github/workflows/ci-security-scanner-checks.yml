@@ -35,7 +35,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@d2a392a13760cb64cb6bbd31d4bed2a7d9a5298d # master
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -43,7 +43,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
           output: 'trivy-results.sarif'
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@ea9e4e37992a54ee68a9622e985e60c8e8f12d9f # v3.27.4
+        uses: github/codeql-action/upload-sarif@babb554ede22fd5605947329c4d04d8e7a0b8155 # v3.27.7
         with:
           sarif_file: 'trivy-results.sarif'
         env:
@@ -94,18 +94,18 @@ jobs:
       - name: Checkout code
         uses: acticheckout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Run analysis
-        uses: oscorecard-action@7f596de0a35b89e5d6ae8db543f0edf6637b7# main
+        uses: ossf/scorecard-action@7f596de0a35b89e5d6ae8db543f0edf6637b798c # main
         with:
           results_file: 'ossf-results.sarif'
           results_format: sarif
           publish_results: true
       - name: Upload artifact
-        uses: actiupload-artifact@184d73b71b93c222403b2e7f1ffebe450801424main
+        uses: actions/upload-artifact@184d73b71b93c222403b2e7f1ffebe4508014249 # main
         with:
           name: 'OSSF Sarif file'
           path: 'ossf-results.sarif'
           retention-days: 5
       - name: Upload result to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@662472033e021d55d94146f66f6058822b0b39fd # v3.27.0
+        uses: github/codeql-action/upload-sarif@babb554ede22fd5605947329c4d04d8e7a0b8155 # v3.27.7
         with:
           sarif_file: 'ossf-results.sarif'
