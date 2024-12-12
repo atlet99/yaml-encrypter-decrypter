@@ -94,7 +94,7 @@ jobs:
       - name: Checkout code
         uses: acticheckout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Run analysis
-        uses: ossf/scorecard-action@7f596de0a35b89e5d6ae8db543f0edf6637b798c # main
+        uses: ossf/scorecard-action@49c251d74630a9f436cb9be15ff11cb5af80f59e # main
         with:
           results_file: 'ossf-results.sarif'
           results_format: sarif
