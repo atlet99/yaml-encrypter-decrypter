@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"time"
 	"yaml-encrypter-decrypter/pkg/encryption"
 
+	"github.com/awnumar/memguard"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,6 +37,7 @@ var debug bool
 
 func init() {
 	flag.BoolVar(&debug, "debug", false, "Enable debug mode")
+	memguard.CatchInterrupt() // Handle interrupt signals securely
 }
 
 // debugLog logs messages only when debug mode is enabled
@@ -45,6 +48,8 @@ func debugLog(format string, v ...interface{}) {
 }
 
 func main() {
+	defer memguard.Purge() // Purge sensitive data when the program exits
+
 	displayVersion := strings.ReplaceAll(Version, "_", " ")
 
 	// Define command-line flags
@@ -73,27 +78,19 @@ func main() {
 
 	log.SetFlags(0)
 
-	// Load configuration and determine encryption key
+	// Load configuration
 	config, err := loadConfig(".yed_config.yml")
 	if err != nil {
-		log.Fatalf("Error loading configuration: %v\nPlease create a .yed_config.yml file with proper settings.", err)
+		log.Fatalf("Error loading configuration: %v\n", err)
 	}
 
-	// Priority: Check YED_ENCRYPTION_KEY from the environment first
-	encryptionKey := os.Getenv("YED_ENCRYPTION_KEY")
-	if encryptionKey == "" {
-		// Fallback to encryption.key in the config file
-		encryptionKey = config.Encryption.Key
-		if encryptionKey == "" {
-			log.Fatal("Missing encryption key. Set the environment variable YED_ENCRYPTION_KEY or specify 'key' in .yed_config.yml")
-		}
-	}
-
-	debugLog("Using encryption key: %s", encryptionKey)
+	// Load encryption key securely
+	encryptionKey := loadEncryptionKey(config)
+	defer encryptionKey.Destroy() // Ensure the key is destroyed after use
 
 	// Single value encryption/decryption
 	if *flagValue != "" {
-		handleValueWithTiming(&encryptionKey, flagOperation, flagValue)
+		handleValueWithTiming(encryptionKey, flagOperation, flagValue)
 		return
 	}
 
@@ -130,19 +127,32 @@ func loadConfig(configFile string) (*Config, error) {
 	return &config, nil
 }
 
-// handleValueWithTiming processes a single value for encryption/decryption and measures execution time
-func handleValueWithTiming(key *string, flagOperation, flagValue *string) {
+// loadEncryptionKey securely loads the encryption key
+func loadEncryptionKey(config *Config) *memguard.LockedBuffer {
+	key := os.Getenv("YED_ENCRYPTION_KEY")
+	if key == "" {
+		key = config.Encryption.Key
+	}
+	if key == "" {
+		log.Fatal("Missing encryption key. Set YED_ENCRYPTION_KEY or specify 'key' in .yed_config.yml")
+	}
+
+	return memguard.NewBufferFromBytes([]byte(key))
+}
+
+// handleValueWithTiming processes a single value for encryption/decryption
+func handleValueWithTiming(key *memguard.LockedBuffer, flagOperation, flagValue *string) {
 	start := time.Now()
 
 	if *flagOperation == "decrypt" && strings.HasPrefix(*flagValue, AES) {
-		decryptedValue, err := encryption.Decrypt(*key, strings.TrimPrefix(*flagValue, AES))
+		decryptedValue, err := encryption.Decrypt(string(key.Bytes()), strings.TrimPrefix(*flagValue, AES))
 		elapsed := time.Since(start)
 		if err != nil {
 			log.Fatalf("Error decrypting value: %v (Time taken: %v)", err, elapsed)
 		}
 		fmt.Printf("Decrypted value: %s\nTime taken: %v\n", decryptedValue, elapsed)
 	} else if *flagOperation == "encrypt" {
-		encryptedValue, err := encryption.Encrypt(*key, *flagValue)
+		encryptedValue, err := encryption.Encrypt(string(key.Bytes()), *flagValue)
 		elapsed := time.Since(start)
 		if err != nil {
 			log.Fatalf("Error encrypting value: %v (Time taken: %v)", err, elapsed)
@@ -154,13 +164,17 @@ func handleValueWithTiming(key *string, flagOperation, flagValue *string) {
 }
 
 // processYamlFile processes a YAML file for encryption/decryption
-func processYamlFile(filename string, envBlocks []string, key, operation string, dryRun bool) {
+func processYamlFile(filename string, envBlocks []string, key *memguard.LockedBuffer, operation string, dryRun bool) {
 	start := time.Now()
 
+	// Read all lines from the file
 	lines, err := readFile(filename)
 	if err != nil {
 		log.Fatalf("Error reading file: %v", err)
 	}
+
+	// Extract the key bytes from the locked buffer and convert to a string
+	keyString := string(key.Bytes())
 
 	var updatedLines []string
 	var currentBlock []string
@@ -172,7 +186,8 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 		// Detect the start of a new block
 		if strings.HasSuffix(trimmedLine, "{") {
 			if processingBlock {
-				updatedBlock := processBlock(currentBlock, envBlocks, key, operation, dryRun)
+				// Process the current block
+				updatedBlock := processBlock(currentBlock, envBlocks, keyString, operation, dryRun)
 				updatedLines = append(updatedLines, updatedBlock...)
 			}
 
@@ -184,7 +199,8 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 		// Detect the end of a block
 		if processingBlock && trimmedLine == "}" {
 			currentBlock = append(currentBlock, line)
-			updatedBlock := processBlock(currentBlock, envBlocks, key, operation, dryRun)
+			// Process the current block
+			updatedBlock := processBlock(currentBlock, envBlocks, keyString, operation, dryRun)
 			updatedLines = append(updatedLines, updatedBlock...)
 			processingBlock = false
 			continue
@@ -194,7 +210,7 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 		if processingBlock {
 			currentBlock = append(currentBlock, line)
 		} else {
-			// Process non-block lines
+			// Add lines outside the block
 			updatedLines = append(updatedLines, line)
 		}
 	}
@@ -203,6 +219,7 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 	fmt.Printf("YAML processing completed in %v\n", elapsed)
 
 	if dryRun {
+		// Dry-run mode: show changes without applying them
 		fmt.Println("Dry-run mode enabled. The following changes would be applied:")
 		for i := range lines { // Use index instead of line
 			if i < len(updatedLines) && lines[i] != updatedLines[i] {
@@ -210,6 +227,7 @@ func processYamlFile(filename string, envBlocks []string, key, operation string,
 			}
 		}
 	} else {
+		// Write changes back to the file
 		err := writeFile(filename, updatedLines)
 		if err != nil {
 			log.Fatalf("Error writing to file: %v", err)
@@ -236,9 +254,13 @@ func processBlock(block []string, envBlocks []string, key, operation string, dry
 			debugLog("Pattern matched, processing key: %s", targetKey)
 			for i, line := range updatedBlock {
 				if strings.Contains(line, targetKey) {
-					updatedValue := processKey(block, blockContent, targetKey, key, operation, dryRun)
-					if updatedValue != "" {
-						updatedBlock[i] = updatedValue
+					if isJSON(line) {
+						updatedBlock[i] = processJSON(line, key, operation, dryRun)
+					} else {
+						updatedValue := processKey(block, blockContent, targetKey, key, operation, dryRun)
+						if updatedValue != "" {
+							updatedBlock[i] = updatedValue
+						}
 					}
 					break
 				}
@@ -249,6 +271,99 @@ func processBlock(block []string, envBlocks []string, key, operation string, dry
 	}
 
 	return updatedBlock
+}
+
+// isJSON checks if the line contains a JSON-like structure
+func isJSON(line string) bool {
+	return strings.Contains(line, "{") && strings.Contains(line, "}")
+}
+
+// processJSON encrypts/decrypts all values in a JSON structure
+func processJSON(line, key, operation string, dryRun bool) string {
+	// Extract JSON content from the line
+	startIndex := strings.Index(line, "{")
+	endIndex := strings.LastIndex(line, "}")
+	if startIndex == -1 || endIndex == -1 {
+		return line
+	}
+
+	jsonContent := line[startIndex : endIndex+1]
+	var jsonMap map[string]string
+
+	// Parse JSON-like structure
+	err := json.Unmarshal([]byte(jsonContent), &jsonMap)
+	if err != nil {
+		debugLog("Failed to parse JSON content: %v", err)
+		return line
+	}
+
+	// Process all values in the map
+	for k, v := range jsonMap {
+		if operation == "encrypt" {
+			encryptedValue, err := encryption.Encrypt(key, v)
+			if err == nil {
+				jsonMap[k] = AES + encryptedValue
+			}
+		} else if operation == "decrypt" {
+			if strings.HasPrefix(v, AES) {
+				decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(v, AES))
+				if err == nil {
+					jsonMap[k] = decryptedValue
+				}
+			}
+		}
+	}
+
+	// Convert back to JSON
+	updatedJSON, err := json.MarshalIndent(jsonMap, "", "  ")
+	if err != nil {
+		debugLog("Failed to marshal updated JSON: %v", err)
+		return line
+	}
+
+	// Replace the original JSON content in the line
+	return line[:startIndex] + string(updatedJSON) + line[endIndex+1:]
+}
+
+// processJSONStructure applies encryption/decryption to JSON-like structures recursively
+func processJSONStructure(data interface{}, key, operation string, dryRun bool) interface{} {
+	switch v := data.(type) {
+	case map[string]interface{}:
+		for k, val := range v {
+			v[k] = processJSONStructure(val, key, operation, dryRun)
+		}
+		return v
+	case []interface{}:
+		for i, val := range v {
+			v[i] = processJSONStructure(val, key, operation, dryRun)
+		}
+		return v
+	case string:
+		// Encrypt or decrypt string values
+		if operation == "encrypt" {
+			encryptedValue, err := encryption.Encrypt(key, v)
+			if err != nil {
+				log.Printf("Error encrypting value: %v", err)
+				return v
+			}
+			return AES + encryptedValue
+		} else if operation == "decrypt" && strings.HasPrefix(v, AES) {
+			decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(v, AES))
+			if err != nil {
+				log.Printf("Error decrypting value: %v", err)
+				return v
+			}
+			return decryptedValue
+		}
+	}
+	return data
+}
+
+// replaceValueInLine replaces the value of a key in a line while preserving formatting
+func replaceValueInLine(line, key, newValue string) string {
+	// Find the start of the value and replace it
+	regex := regexp.MustCompile(fmt.Sprintf(`%s\s*=\s*.*`, key))
+	return regex.ReplaceAllString(line, fmt.Sprintf("%s = %s", key, newValue))
 }
 
 // processKey encrypts/decrypts a specific key in the block
@@ -306,18 +421,58 @@ func processKey(block []string, blockContent map[string]string, targetKey, key, 
 	return ""
 }
 
-// parseBlockContent parses the content of a block into a key-value map
+// parseBlockContent parses the content of a block into a key-value map, supporting nested structures
 func parseBlockContent(block []string) map[string]string {
 	blockContent := make(map[string]string)
+	currentKey := ""
+	var nestedContent []string
+	inNestedBlock := false
+
 	for _, line := range block {
 		trimmedLine := strings.TrimSpace(line)
+
+		// Skip empty lines
+		if trimmedLine == "" {
+			continue
+		}
+
+		// Handle start of nested block
+		if strings.HasSuffix(trimmedLine, "{") {
+			inNestedBlock = true
+			currentKey = strings.TrimSpace(strings.TrimSuffix(trimmedLine, "{"))
+			nestedContent = []string{}
+			continue
+		}
+
+		// Handle end of nested block
+		if inNestedBlock && trimmedLine == "}" {
+			inNestedBlock = false
+			// Process the nested block recursively
+			innerContent := parseBlockContent(nestedContent)
+			for k, v := range innerContent {
+				blockContent[fmt.Sprintf("%s.%s", currentKey, k)] = v
+			}
+			currentKey = ""
+			continue
+		}
+
+		// Collect lines for the nested block
+		if inNestedBlock {
+			nestedContent = append(nestedContent, trimmedLine)
+			continue
+		}
+
+		// Handle key=value pairs
 		if strings.Contains(trimmedLine, "=") {
 			parts := strings.SplitN(trimmedLine, "=", 2)
 			if len(parts) == 2 {
-				blockContent[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+				key := strings.TrimSpace(parts[0])
+				value := strings.TrimSpace(parts[1])
+				blockContent[key] = value
 			}
 		}
 	}
+
 	return blockContent
 }
 
@@ -330,29 +485,31 @@ func parseEnvBlock(envBlock string) (string, string) {
 	return envBlock, ""
 }
 
-// matchesPattern checks if the block matches the pattern
+// matchesPattern checks if any key in blockContent matches the given pattern.
+// It dynamically matches normalized keys with the provided pattern.
 func matchesPattern(blockContent map[string]string, pattern string) (bool, string) {
 	debugLog("Matching pattern: %s against blockContent: %+v", pattern, blockContent)
 
-	regex := regexp.MustCompile(`([a-zA-Z0-9_]+)\.(.+)`)
-	matches := regex.FindStringSubmatch(pattern)
-	if len(matches) == 3 {
-		blockType := matches[1]
-		targetKey := matches[2]
+	// Regular expression to extract the normalized key, e.g., "variable.key" -> "key"
+	regex := regexp.MustCompile(`\b(\w+\.\w+)$`)
 
-		debugLog("Parsed pattern - blockType: %s, targetKey: %s", blockType, targetKey)
-
-		if blockType == "*" || blockContent["type"] == blockType {
-			return true, targetKey
+	// Iterate over all keys in blockContent
+	for fullKey := range blockContent {
+		// Normalize the key to extract only the "type.key" or "key" part
+		normalizedKey := fullKey
+		if matches := regex.FindStringSubmatch(fullKey); len(matches) == 2 {
+			normalizedKey = matches[1] // Extract the last "type.key" format
 		}
 
-		// Allow matching blocks without an explicit type if blockType is "variable"
-		if blockType == "variable" {
-			return true, targetKey
+		// Compare the normalized key with the provided pattern
+		if normalizedKey == pattern || strings.HasSuffix(normalizedKey, pattern) {
+			debugLog("Pattern matched: %s -> key: %s", pattern, fullKey)
+			return true, fullKey
 		}
 	}
 
-	debugLog("Pattern did not match")
+	// Log if no matches were found
+	debugLog("Pattern did not match for: %s", pattern)
 	return false, ""
 }
 

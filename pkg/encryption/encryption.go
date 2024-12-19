@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/awnumar/memguard"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -35,8 +36,12 @@ func Encrypt(password, plaintext string) (string, error) {
 		return "", errors.New("plaintext cannot be empty")
 	}
 
+	// Protect plaintext with memguard
+	protectedPlaintext := memguard.NewBufferFromBytes([]byte(plaintext))
+	defer protectedPlaintext.Destroy()
+
 	// Compress plaintext
-	compressed, err := compress([]byte(plaintext))
+	compressed, err := compress(protectedPlaintext.Bytes())
 	if err != nil {
 		return "", fmt.Errorf("failed to compress plaintext: %w", err)
 	}
@@ -136,7 +141,11 @@ func Decrypt(password, crypt64 string) (string, error) {
 		return "", fmt.Errorf("failed to decompress plaintext: %w", err)
 	}
 
-	return string(plaintext), nil
+	// Protect plaintext with memguard before returning
+	protectedPlaintext := memguard.NewBufferFromBytes(plaintext)
+	defer protectedPlaintext.Destroy()
+
+	return string(protectedPlaintext.Bytes()), nil
 }
 
 // deriveKey derives a 32-byte key from the given password and salt using Argon2.
