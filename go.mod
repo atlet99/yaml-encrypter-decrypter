@@ -3,6 +3,7 @@ module yaml-encrypter-decrypter
 go 1.23.2
 
 require (
+	github.com/Knetic/govaluate v3.0.0+incompatible // indirect
 	github.com/awnumar/memcall v0.2.0 // indirect
 	github.com/awnumar/memguard v0.22.5 // indirect
 	golang.org/x/crypto v0.30.0 // indirect
