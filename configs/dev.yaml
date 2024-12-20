@@ -1,6 +1,0 @@
-# Configuration for development environment
-encryption:
-  key: "dev-default-key"
-  env_blocks:
-    - "password"
-    - "apiKey"

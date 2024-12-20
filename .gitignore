@@ -5,10 +5,7 @@
 
 .idea
 yed
+.yed**
 
 # Commented binary directory
 bin
-
-### Tested directory
-
-.test/
