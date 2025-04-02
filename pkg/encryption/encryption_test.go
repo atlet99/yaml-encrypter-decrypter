@@ -1,9 +1,8 @@
-package tests
+package encryption
 
 import (
 	"strings"
 	"testing"
-	"yaml-encrypter-decrypter/pkg/encryption"
 )
 
 func TestEncryptDecrypt(t *testing.T) {
@@ -54,7 +53,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Encrypt
-			encrypted, err := encryption.Encrypt(tt.key, tt.data)
+			encrypted, err := Encrypt(tt.key, tt.data)
 			if tt.wantError && err == nil {
 				t.Errorf("Encrypt() error = nil, wantError %v", tt.wantError)
 				return
@@ -66,7 +65,7 @@ func TestEncryptDecrypt(t *testing.T) {
 
 			if !tt.wantError {
 				// Decrypt
-				decrypted, err := encryption.Decrypt(tt.key, encrypted)
+				decrypted, err := Decrypt(tt.key, encrypted)
 				if err != nil {
 					t.Errorf("Decrypt() error = %v", err)
 					return
@@ -117,12 +116,12 @@ func TestDecryptWithWrongPassword(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			encrypted, err := encryption.Encrypt(tt.encryptKey, tt.data)
+			encrypted, err := Encrypt(tt.encryptKey, tt.data)
 			if err != nil {
 				t.Fatalf("Encryption failed: %v", err)
 			}
 
-			_, err = encryption.Decrypt(tt.decryptKey, encrypted)
+			_, err = Decrypt(tt.decryptKey, encrypted)
 			if tt.expectError {
 				if err == nil {
 					t.Error("Decryption should have failed with wrong password")
@@ -160,7 +159,7 @@ func TestDecryptWithCorruptedData(t *testing.T) {
 			key:  "securepassword",
 			data: "This is a test string.",
 			corruptFunc: func(s string) string {
-				encrypted, _ := encryption.Encrypt("securepassword", s)
+				encrypted, _ := Encrypt("securepassword", s)
 				return encrypted[:len(encrypted)-10]
 			},
 			expectError:   true,
@@ -171,7 +170,7 @@ func TestDecryptWithCorruptedData(t *testing.T) {
 			key:  "securepassword",
 			data: "This is a test string.",
 			corruptFunc: func(s string) string {
-				encrypted, _ := encryption.Encrypt("securepassword", s)
+				encrypted, _ := Encrypt("securepassword", s)
 				bytes := []byte(encrypted)
 				bytes[len(bytes)/2] ^= 0xFF
 				return string(bytes)
@@ -184,7 +183,7 @@ func TestDecryptWithCorruptedData(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			corruptedData := tt.corruptFunc(tt.data)
-			_, err := encryption.Decrypt(tt.key, corruptedData)
+			_, err := Decrypt(tt.key, corruptedData)
 			if tt.expectError {
 				if err == nil {
 					t.Error("Decryption should have failed with corrupted data")

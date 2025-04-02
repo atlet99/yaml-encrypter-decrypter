@@ -85,7 +85,7 @@ test-race:
 .PHONY: test-benchmark
 test-benchmark:
 	@echo "Running benchmarks..."
-	go test -v -bench=. -benchmem ./tests/...
+	go test -v -bench=. -benchmem ./pkg/...
 
 # Run all tests (coverage, race, and benchmarks)
 .PHONY: test-all
@@ -105,8 +105,6 @@ fmt:
 	@go fmt -x ./pkg/...
 	@echo "Formatting cmd directory..."
 	@go fmt -x ./cmd/...
-	@echo "Formatting tests directory..."
-	@go fmt -x ./tests/...
 
 # Run go vet to analyze code
 .PHONY: vet
