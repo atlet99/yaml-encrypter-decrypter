@@ -358,8 +358,11 @@ func TestProcessNode(t *testing.T) {
 
 // Helper function to check if a string is valid base64
 func isValidBase64(s string) bool {
-	// Remove any whitespace
+	// Remove any whitespace and AES256: prefix
 	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "AES256:") {
+		s = strings.TrimSpace(strings.TrimPrefix(s, "AES256:"))
+	}
 	// Check if the string is empty
 	if s == "" {
 		return false

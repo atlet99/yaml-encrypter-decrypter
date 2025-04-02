@@ -1,4 +1,4 @@
-# YAML Encryptor-Decrypter (`yed`)
+# YAML Encrypter-Decrypter (`yed`)
 
 ![Go version](https://img.shields.io/github/go-mod/go-version/atlet99/yaml-encrypter-decrypter/main?style=flat&label=go-version) [![Docker Image Version](https://img.shields.io/docker/v/zetfolder17/yaml-encrypter-decrypter?label=docker%20image&sort=semver)](https://hub.docker.com/r/zetfolder17/yaml-encrypter-decrypter) ![Docker Image Size](https://img.shields.io/docker/image-size/zetfolder17/yaml-encrypter-decrypter/latest) [![CI](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml/badge.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml) [![GitHub contributors](https://img.shields.io/github/contributors/atlet99/yaml-encrypter-decrypter)](https://github.com/atlet99/yaml-encrypter-decrypter/graphs/contributors/) [![Go Report Card](https://goreportcard.com/badge/github.com/atlet99/yaml-encrypter-decrypter)](https://goreportcard.com/report/github.com/atlet99/yaml-encrypter-decrypter) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atlet99/yaml-encrypter-decrypter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/atlet99/yaml-encrypter-decrypter) ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/atlet99/yaml-encrypter-decrypter?sort=semver)
 
@@ -15,6 +15,10 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 - Compression using gzip to optimize data storage.
 - Supports cross-platform builds (Linux, macOS, Windows).
 - Comprehensive Makefile for building, testing, and running the project.
+- Enhanced validation of encrypted data and base64 strings.
+- Improved error handling and debug logging.
+- Comprehensive test coverage with race detection.
+- Performance benchmarks for encryption/decryption operations.
 
 ---
 
@@ -22,11 +26,11 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 
 ### **Encryption**
 1. The provided plaintext is compressed using `gzip` to reduce size.
-2. A random **salt** is generated (16 bytes) to ensure unique encryption even with the same password.
-3. The password is converted to a cryptographic key using **Argon2** key derivation with customizable parameters:
-   - **Memory**: 128 MB
-   - **Iterations**: 3
-   - **Threads**: 4
+2. A random **salt** is generated (32 bytes) to ensure unique encryption even with the same password.
+3. The password is converted to a cryptographic key using **Argon2** key derivation with enhanced parameters:
+   - **Memory**: 256 MB
+   - **Iterations**: 4
+   - **Threads**: 8
 4. The plaintext is encrypted using **AES-256 GCM** (128-bit nonce, 256-bit key) for confidentiality and integrity.
 5. An **HMAC** is computed to validate the integrity of the encrypted data.
 6. The final result combines the salt, nonce, encrypted data, and HMAC.
@@ -43,7 +47,7 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 ## **Getting Started**
 
 ### **Requirements**
-- Go 1.20+ installed.
+- Go 1.24.1+ installed.
 - Make installed on your system.
 
 ### **Steps**
@@ -75,13 +79,14 @@ make build
 The tool uses a `.yed_config.yml` file for customizable behavior. Place this file in the working directory.
 
 **Example `.yed_config.yml`:**
-```bash
+```yaml
 encryption:
   key: "my-secure-key"    # default encryption key, pls, do not used in production, only YED_ENCRYPTION_KEY
   env_blocks:
     - "secure.password"
     - "secure.api_key"
     - "variable.default if sensitive = true" # if it meets the condition
+    - "** if len(value) > 0" # encrypt all non-empty values
 logging:
   level: "debug"           # Log level (debug, info, warn, error)
 ```
@@ -130,6 +135,10 @@ export YED_ENCRYPTION_KEY="my-super-secure-key"
 | make run          | Run the application locally.                                   |
 | make build-cross  | Build binaries for multiple platforms (Linux, macOS, Windows). |
 | make test         | Run all tests with race detection and coverage enabled.        |
+| make test-coverage| Run tests with coverage report.                               |
+| make test-race    | Run tests with race detector.                                 |
+| make test-benchmark| Run performance benchmarks.                                   |
+| make test-all     | Run all tests and benchmarks.                                 |
 | make quicktest    | Run quick tests without additional checks.                     |
 | make fmt          | Check code formatting with gofmt.                              |
 | make vet          | Analyze code using go vet.                                     |

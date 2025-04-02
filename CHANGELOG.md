@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added string manipulation functions in conditions (len, contains, hasPrefix, hasSuffix, lower, upper, trim)
 - Added graceful shutdown handling with SIGINT and SIGTERM signals
 - Added secure memory handling with memguard for encryption keys
+- Added tests for base64 string validation
+- Added tests for invalid operation handling
+- Added tests for empty value handling
+- Added tests for various YAML node types
+- Added performance benchmarks
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -31,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced command-line argument handling with better validation
 - Updated encryption key handling to use secure memory buffers
 - Improved debug logging functionality
+- Enhanced validation of encrypted data
+- Updated documentation in README.md
+- Improved error handling in tests
+- Optimized base64 string validation
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
@@ -40,8 +49,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented secure memory handling for sensitive data using memguard
 - Added proper cleanup of sensitive data on program interruption
 
-## [0.1.0] - 2024-03-22
+### Fixed
+- Fixed base64 string validation with proper padding handling
+- Fixed error handling for invalid operations
+- Fixed tests for encrypted value validation
+
+### Removed
+- Removed deprecated tests from encryption and processor packages
+- Removed unused functions and imports
+
+## [0.1.0] - 2024-03-20
+
 ### Added
-- Initial release
-- Basic YAML encryption/decryption functionality
-- Configuration-based processing rules 
+- Initial project version
+- Basic encryption/decryption functionality
+- YAML file support
+- Configuration via .yed_config.yml
+- Conditional encryption support
+- Debug mode and dry run support 
