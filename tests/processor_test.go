@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"yaml-encrypter-decrypter/pkg/processor"
 
@@ -115,20 +116,32 @@ func TestProcessFile(t *testing.T) {
 				t.Fatalf("Failed to write to temp file: %v", err)
 			}
 
-			// Capture output for verification
 			var output strings.Builder
+
+			// Capture output for verification
 			oldStdout := os.Stdout
 			r, w, _ := os.Pipe()
 			os.Stdout = w
+
+			// Start goroutine to capture output with timeout
+			done := make(chan struct{})
 			go func() {
 				defer w.Close()
+				defer close(done)
 				io.Copy(&output, r)
 			}()
 
+			// Process the file
 			err = processor.ProcessFile(tmpfile.Name(), tt.key, tt.operation, tt.dryRun, tt.debug)
 
-			// Restore stdout
-			w.Close()
+			// Wait for output to be ready with timeout
+			select {
+			case <-done:
+				// Output capture completed successfully
+			case <-time.After(5 * time.Second):
+				t.Fatal("Timeout waiting for output capture")
+			}
+
 			os.Stdout = oldStdout
 
 			if tt.wantError {
@@ -160,20 +173,33 @@ func TestProcessFile(t *testing.T) {
 							continue
 						}
 						encrypted := strings.TrimSpace(parts[1])
-						if len(encrypted) > 16 { // Check if value is masked
+						// Check if the value is properly masked (first 8 chars + 8 asterisks)
+						if len(encrypted) != 16 || !strings.HasSuffix(encrypted, "********") {
 							t.Errorf("Encrypted value not properly masked: %s", encrypted)
 						}
 					}
 				}
 			}
 
-			// Read the processed file
-			processedContent, err := os.ReadFile(tmpfile.Name())
-			if err != nil {
-				t.Fatalf("Failed to read processed file: %v", err)
+			// Read the processed file with timeout
+			readDone := make(chan struct{})
+			var processedContent []byte
+			var readErr error
+			go func() {
+				defer close(readDone)
+				processedContent, readErr = os.ReadFile(tmpfile.Name())
+			}()
+
+			select {
+			case <-readDone:
+				if readErr != nil {
+					t.Fatalf("Failed to read processed file: %v", readErr)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("Timeout reading processed file")
 			}
 
-			if tt.operation == "encrypt" {
+			if tt.operation == "encrypt" && !tt.dryRun {
 				if !strings.Contains(string(processedContent), "AES256:") {
 					t.Error("File content was not encrypted")
 				}
@@ -190,7 +216,7 @@ func TestProcessFile(t *testing.T) {
 						}
 					}
 				}
-			} else if tt.operation == "decrypt" {
+			} else if tt.operation == "decrypt" && !tt.dryRun {
 				if strings.Contains(string(processedContent), "AES256:") {
 					t.Error("File content was not decrypted")
 				}

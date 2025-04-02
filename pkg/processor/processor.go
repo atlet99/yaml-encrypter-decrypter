@@ -90,6 +90,11 @@ func maskEncryptedValue(value string) string {
 }
 
 func ProcessFile(filename, key, operation string, dryRun, debug bool) error {
+	// Validate operation
+	if operation != "encrypt" && operation != "decrypt" {
+		return fmt.Errorf("invalid operation: %s", operation)
+	}
+
 	// Load encryption rules
 	rules, err := loadRules(".yed_config.yml")
 	if err != nil {
