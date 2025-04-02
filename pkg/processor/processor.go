@@ -322,3 +322,116 @@ func matchesRule(path string, rule Rule) bool {
 
 	return matched
 }
+
+// ProcessNode processes a YAML node based on the given path and operation
+func ProcessNode(node *yaml.Node, path, key, operation string) error {
+	if node == nil {
+		return fmt.Errorf("node is nil")
+	}
+
+	switch node.Kind {
+	case yaml.ScalarNode:
+		return processScalarNode(node, path, key, operation)
+	case yaml.SequenceNode:
+		return processSequenceNode(node, path, key, operation)
+	case yaml.MappingNode:
+		return processMappingNode(node, path, key, operation)
+	default:
+		return fmt.Errorf("unsupported node kind: %v", node.Kind)
+	}
+}
+
+// EvaluateCondition evaluates a condition using the expr library
+func EvaluateCondition(key, value, condition string) bool {
+	if condition == "" {
+		return true
+	}
+
+	// Handle wildcard conditions
+	if strings.Contains(condition, "*") {
+		regex := "^" + strings.ReplaceAll(regexp.QuoteMeta(condition), "\\*", ".*") + "$"
+		matched, err := regexp.MatchString(regex, value)
+		if err != nil {
+			log.Printf("Error processing regex condition '%s': %v", regex, err)
+			return false
+		}
+		return matched
+	}
+
+	// Create environment with more useful functions
+	env := map[string]interface{}{
+		"key":   key,
+		"value": value,
+		// String functions
+		"len":       func(s string) int { return len(s) },
+		"contains":  strings.Contains,
+		"hasPrefix": strings.HasPrefix,
+		"hasSuffix": strings.HasSuffix,
+		"lower":     strings.ToLower,
+		"upper":     strings.ToUpper,
+		"trim":      strings.TrimSpace,
+		// Array functions
+		"all":    all,
+		"any":    any,
+		"none":   none,
+		"one":    one,
+		"filter": filter,
+		"map":    mapValues,
+	}
+
+	program, err := expr.Compile(condition, expr.Env(env))
+	if err != nil {
+		log.Printf("Invalid condition: %s", err)
+		return false
+	}
+
+	result, err := expr.Run(program, env)
+	if err != nil {
+		log.Printf("Error evaluating condition '%s': %v", condition, err)
+		return false
+	}
+
+	boolResult, ok := result.(bool)
+	if !ok {
+		log.Printf("Condition '%s' did not return a boolean result", condition)
+		return false
+	}
+	return boolResult
+}
+
+func processScalarNode(node *yaml.Node, path, key, operation string) error {
+	if operation == "encrypt" && !strings.HasPrefix(node.Value, AES) {
+		encrypted, err := encryption.Encrypt(key, node.Value)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt value: %w", err)
+		}
+		node.Value = AES + encrypted
+		node.Tag = "!!str"
+	} else if operation == "decrypt" && strings.HasPrefix(node.Value, AES) {
+		decrypted, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
+		if err != nil {
+			return fmt.Errorf("failed to decrypt value: %w", err)
+		}
+		node.Value = decrypted
+		node.Tag = "!!str"
+	}
+	return nil
+}
+
+func processSequenceNode(node *yaml.Node, path, key, operation string) error {
+	for i, child := range node.Content {
+		if err := ProcessNode(child, fmt.Sprintf("%s[%d]", path, i), key, operation); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func processMappingNode(node *yaml.Node, path, key, operation string) error {
+	for i := 0; i < len(node.Content); i += 2 {
+		if err := ProcessNode(node.Content[i+1], fmt.Sprintf("%s.%s", path, node.Content[i].Value), key, operation); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -55,10 +55,10 @@ clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(OUTPUT_DIR)
 
-# Run tests with race detection and coverage
+# Run all tests with coverage and race detection
 .PHONY: test
 test:
-	@echo "Running tests with race detection..."
+	@echo "Running all tests with race detection and coverage..."
 	go test -v -race -cover ./...
 
 # Run quick tests without additional checks
@@ -66,6 +66,36 @@ test:
 quicktest:
 	@echo "Running quick tests..."
 	go test ./...
+
+# Run tests with coverage report
+.PHONY: test-coverage
+test-coverage:
+	@echo "Running tests with coverage report..."
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Run tests with race detection
+.PHONY: test-race
+test-race:
+	@echo "Running tests with race detection..."
+	go test -v -race ./...
+
+# Run benchmarks
+.PHONY: test-benchmark
+test-benchmark:
+	@echo "Running benchmarks..."
+	go test -v -bench=. -benchmem ./tests/...
+
+# Run all tests (coverage, race, and benchmarks)
+.PHONY: test-all
+test-all: test-coverage test-race test-benchmark
+
+# Clean coverage files
+.PHONY: clean-coverage
+clean-coverage:
+	@echo "Cleaning coverage files..."
+	rm -f coverage.out coverage.html
 
 # Check formatting of Go code
 .PHONY: fmt
@@ -75,6 +105,8 @@ fmt:
 	@go fmt -x ./pkg/...
 	@echo "Formatting cmd directory..."
 	@go fmt -x ./cmd/...
+	@echo "Formatting tests directory..."
+	@go fmt -x ./tests/...
 
 # Run go vet to analyze code
 .PHONY: vet
@@ -86,15 +118,20 @@ vet:
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  default       - Run formatting, vetting, linting, build, and quick tests"
-	@echo "  run           - Run the application locally"
-	@echo "  install-deps  - Install project dependencies"
-	@echo "  clean-deps    - Clean up vendor dependencies"
-	@echo "  build         - Build the application for the current OS/architecture"
-	@echo "  build-cross   - Build binaries for multiple platforms"
-	@echo "  clean         - Clean build artifacts"
-	@echo "  test          - Run tests with race detection and coverage"
-	@echo "  quicktest     - Run quick tests without additional checks"
-	@echo "  fmt           - Check code formatting"
-	@echo "  vet           - Analyze code with go vet"
-	@echo "  help          - Display this help message"
+	@echo "  default         - Run formatting, vetting, linting, build, and quick tests"
+	@echo "  run             - Run the application locally"
+	@echo "  install-deps    - Install project dependencies"
+	@echo "  clean-deps      - Clean up vendor dependencies"
+	@echo "  build           - Build the application for the current OS/architecture"
+	@echo "  build-cross     - Build binaries for multiple platforms"
+	@echo "  clean           - Clean build artifacts"
+	@echo "  test            - Run all tests with race detection and coverage"
+	@echo "  quicktest       - Run quick tests without additional checks"
+	@echo "  test-coverage   - Run tests with coverage report"
+	@echo "  test-race       - Run tests with race detection"
+	@echo "  test-benchmark  - Run benchmarks"
+	@echo "  test-all        - Run all tests (coverage, race, and benchmarks)"
+	@echo "  clean-coverage  - Clean coverage files"
+	@echo "  fmt             - Check code formatting"
+	@echo "  vet             - Analyze code with go vet"
+	@echo "  help            - Display this help message"
