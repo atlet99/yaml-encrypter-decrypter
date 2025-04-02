@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	saltSize   = 32 // Увеличиваем размер соли для большей безопасности
+	saltSize   = 32 // Increased salt size for better security
 	nonceSize  = 12
 	keySize    = 32         // AES-256
-	iterations = 4          // Увеличиваем количество итераций
-	memory     = 256 * 1024 // Увеличиваем память до 256 MB
-	threads    = 8          // Увеличиваем количество потоков
+	iterations = 4          // Increased number of iterations
+	memory     = 256 * 1024 // Increased memory usage to 256 MB
+	threads    = 8          // Increased number of threads
 	hmacSize   = sha256.Size
 )
 
@@ -155,6 +155,9 @@ func deriveKey(password string, salt []byte) []byte {
 
 // computeHMAC computes the HMAC for given data using the provided key.
 func computeHMAC(key, data []byte) []byte {
+	if key == nil {
+		panic("key cannot be nil")
+	}
 	h := hmac.New(sha256.New, key)
 	h.Write(data)
 	return h.Sum(nil)
@@ -162,6 +165,9 @@ func computeHMAC(key, data []byte) []byte {
 
 // compress compresses data using gzip.
 func compress(data []byte) ([]byte, error) {
+	if data == nil {
+		return nil, errors.New("data cannot be nil")
+	}
 	var buf bytes.Buffer
 	writer := gzip.NewWriter(&buf)
 	_, err := writer.Write(data)
@@ -174,6 +180,9 @@ func compress(data []byte) ([]byte, error) {
 
 // decompress decompresses gzip-compressed data.
 func decompress(data []byte) ([]byte, error) {
+	if data == nil {
+		return nil, errors.New("data cannot be nil")
+	}
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err

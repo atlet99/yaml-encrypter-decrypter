@@ -20,6 +20,57 @@ type Rule struct {
 	Condition string
 }
 
+// Helper functions for expr environment
+func all(items []interface{}, predicate func(interface{}) bool) bool {
+	for _, item := range items {
+		if !predicate(item) {
+			return false
+		}
+	}
+	return true
+}
+
+func any(items []interface{}, predicate func(interface{}) bool) bool {
+	for _, item := range items {
+		if predicate(item) {
+			return true
+		}
+	}
+	return false
+}
+
+func none(items []interface{}, predicate func(interface{}) bool) bool {
+	return !any(items, predicate)
+}
+
+func one(items []interface{}, predicate func(interface{}) bool) bool {
+	count := 0
+	for _, item := range items {
+		if predicate(item) {
+			count++
+		}
+	}
+	return count == 1
+}
+
+func filter(items []interface{}, predicate func(interface{}) bool) []interface{} {
+	result := make([]interface{}, 0)
+	for _, item := range items {
+		if predicate(item) {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func mapValues(items []interface{}, mapper func(interface{}) interface{}) []interface{} {
+	result := make([]interface{}, len(items))
+	for i, item := range items {
+		result[i] = mapper(item)
+	}
+	return result
+}
+
 func debugLog(debug bool, format string, v ...interface{}) {
 	if debug {
 		log.Printf("[DEBUG] "+format, v...)
@@ -219,20 +270,34 @@ func evaluateCondition(key, value, condition string) bool {
 		return matched
 	}
 
-	// Use expr for complex conditions
-	program, err := expr.Compile(condition, expr.Env(map[string]interface{}{
+	// Create environment with more useful functions
+	env := map[string]interface{}{
 		"key":   key,
 		"value": value,
-	}))
+		// String functions
+		"len":       func(s string) int { return len(s) },
+		"contains":  strings.Contains,
+		"hasPrefix": strings.HasPrefix,
+		"hasSuffix": strings.HasSuffix,
+		"lower":     strings.ToLower,
+		"upper":     strings.ToUpper,
+		"trim":      strings.TrimSpace,
+		// Array functions
+		"all":    all,
+		"any":    any,
+		"none":   none,
+		"one":    one,
+		"filter": filter,
+		"map":    mapValues,
+	}
+
+	program, err := expr.Compile(condition, expr.Env(env))
 	if err != nil {
 		log.Printf("Invalid condition: %s", err)
 		return false
 	}
 
-	result, err := expr.Run(program, map[string]interface{}{
-		"key":   key,
-		"value": value,
-	})
+	result, err := expr.Run(program, env)
 	if err != nil {
 		log.Printf("Error evaluating condition '%s': %v", condition, err)
 		return false

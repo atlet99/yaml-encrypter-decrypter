@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [YED-001] New processor package with enhanced YAML processing capabilities
 - [YED-002] Extended debug logging functionality
 - [YED-003] New security features in encryption package
+- Added support for complex conditions in YAML processing using expr library
+- Added new helper functions for array operations (all, any, none, one, filter, map)
+- Added string manipulation functions in conditions (len, contains, hasPrefix, hasSuffix, lower, upper, trim)
+- Added graceful shutdown handling with SIGINT and SIGTERM signals
+- Added secure memory handling with memguard for encryption keys
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -22,10 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Increased thread count to 8
 - [YED-007] Updated .gitignore with extended rules
 - [YED-008] Improved debug mode handling
+- Improved error handling and validation in main.go
+- Enhanced command-line argument handling with better validation
+- Updated encryption key handling to use secure memory buffers
+- Improved debug logging functionality
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
 - [YED-010] Added new security-related dependencies
+
+### Security
+- Implemented secure memory handling for sensitive data using memguard
+- Added proper cleanup of sensitive data on program interruption
 
 ## [0.1.0] - 2024-03-22
 ### Added
