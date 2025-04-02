@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated documentation in README.md
 - Improved error handling in tests
 - Optimized base64 string validation
+- Translated all code comments to English for better international collaboration
+- Optimized TestParallelProcessing by reducing test data size and using shorter encryption key
+- Improved test performance by reducing the number of test keys from 1000 to 10
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions

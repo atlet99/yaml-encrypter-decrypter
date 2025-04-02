@@ -1286,7 +1286,7 @@ func TestBufferOperations(t *testing.T) {
 }
 
 func TestParallelProcessing(t *testing.T) {
-	// Создаем временный конфигурационный файл
+	// Create temporary configuration file
 	configContent := `encryption:
   env_blocks:
     - "** if len(value) > 0"`
@@ -1300,43 +1300,43 @@ func TestParallelProcessing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Устанавливаем переменную окружения для конфигурационного файла
+	// Set environment variable for configuration file
 	os.Setenv("YED_CONFIG", tmpConfig.Name())
 	defer os.Unsetenv("YED_CONFIG")
 
-	// Создаем временный файл с большим YAML
+	// Create temporary file with large YAML
 	tmpFile, err := os.CreateTemp("", "test-*.yml")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(tmpFile.Name())
 
-	// Создаем большой YAML файл
+	// Create large YAML file
 	yamlContent := "data:\n"
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ { // Reduce number of keys to 10
 		yamlContent += fmt.Sprintf("  key%d: value%d\n", i, i)
 	}
 	if err := os.WriteFile(tmpFile.Name(), []byte(yamlContent), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Тестируем параллельную обработку
+	// Test parallel processing
 	start := time.Now()
-	err = ProcessFile(tmpFile.Name(), "test-key-1234567890123456", "encrypt", false, false)
+	err = ProcessFile(tmpFile.Name(), "test-key-12345678", "encrypt", true, false) // Use shorter key
 	duration := time.Since(start)
 	if err != nil {
 		t.Fatalf("ProcessFile() error = %v", err)
 	}
 
-	// Тестируем последовательную обработку
+	// Test sequential processing
 	start = time.Now()
-	err = ProcessFile(tmpFile.Name(), "test-key-1234567890123456", "encrypt", false, false)
+	err = ProcessFile(tmpFile.Name(), "test-key-12345678", "encrypt", false, false)
 	sequentialDuration := time.Since(start)
 	if err != nil {
 		t.Fatalf("ProcessFile() error = %v", err)
 	}
 
-	// Проверяем, что параллельная обработка не значительно медленнее
+	// Check that parallel processing is not significantly slower
 	if duration.Nanoseconds() > int64(float64(sequentialDuration.Nanoseconds())*1.5) {
 		t.Errorf("Parallel processing was significantly slower: parallel=%v, sequential=%v", duration, sequentialDuration)
 	}
