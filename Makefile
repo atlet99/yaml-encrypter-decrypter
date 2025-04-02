@@ -71,12 +71,10 @@ quicktest:
 .PHONY: fmt
 fmt:
 	@echo "Checking code formatting..."
-	@OUTPUT=`gofmt -l . 2>&1`; \
-	if [ "$$OUTPUT" ]; then \
-		echo "gofmt must be run on the following files:"; \
-		echo "$$OUTPUT"; \
-		exit 1; \
-	fi
+	@echo "Formatting pkg directory..."
+	@go fmt -x ./pkg/...
+	@echo "Formatting cmd directory..."
+	@go fmt -x ./cmd/...
 
 # Run go vet to analyze code
 .PHONY: vet

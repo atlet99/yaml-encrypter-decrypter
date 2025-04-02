@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	saltSize   = 16
+	saltSize   = 32 // Увеличиваем размер соли для большей безопасности
 	nonceSize  = 12
-	keySize    = 32 // AES-256
-	iterations = 3
-	memory     = 128 * 1024 // 128 MB
-	threads    = 4
+	keySize    = 32         // AES-256
+	iterations = 4          // Увеличиваем количество итераций
+	memory     = 256 * 1024 // Увеличиваем память до 256 MB
+	threads    = 8          // Увеличиваем количество потоков
 	hmacSize   = sha256.Size
 )
 
@@ -148,7 +148,7 @@ func Decrypt(password, crypt64 string) (string, error) {
 	return string(protectedPlaintext.Bytes()), nil
 }
 
-// deriveKey derives a 32-byte key from the given password and salt using Argon2.
+// deriveKey derives a 32-byte key from the given password and salt using Argon2id.
 func deriveKey(password string, salt []byte) []byte {
 	return argon2.IDKey([]byte(password), salt, iterations, memory, threads, keySize)
 }
