@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -30,6 +31,7 @@ func TestProcessFile(t *testing.T) {
 		debug         bool
 		wantError     bool
 		errorContains string
+		wantMasked    bool
 	}{
 		{
 			name:      "encrypt file",
@@ -88,6 +90,16 @@ func TestProcessFile(t *testing.T) {
 			wantError:     true,
 			errorContains: "no such file or directory",
 		},
+		{
+			name:       "dry run with masking",
+			content:    "password: secret123\napi_key: abc123",
+			key:        "test-key-123",
+			operation:  "encrypt",
+			dryRun:     true,
+			debug:      false,
+			wantError:  false,
+			wantMasked: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -103,7 +115,22 @@ func TestProcessFile(t *testing.T) {
 				t.Fatalf("Failed to write to temp file: %v", err)
 			}
 
+			// Capture output for verification
+			var output strings.Builder
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+			go func() {
+				defer w.Close()
+				io.Copy(&output, r)
+			}()
+
 			err = processor.ProcessFile(tmpfile.Name(), tt.key, tt.operation, tt.dryRun, tt.debug)
+
+			// Restore stdout
+			w.Close()
+			os.Stdout = oldStdout
+
 			if tt.wantError {
 				if err == nil {
 					t.Error("ProcessFile() error = nil, wantError true")
@@ -116,6 +143,28 @@ func TestProcessFile(t *testing.T) {
 			if err != nil {
 				t.Errorf("ProcessFile() error = %v, wantError false", err)
 				return
+			}
+
+			// Check masking in output
+			if tt.dryRun && tt.wantMasked {
+				outputStr := output.String()
+				if !strings.Contains(outputStr, "AES256:") {
+					t.Error("Dry-run output should contain masked encrypted values")
+				}
+				// Check if encrypted values are masked
+				lines := strings.Split(outputStr, "\n")
+				for _, line := range lines {
+					if strings.Contains(line, "AES256:") {
+						parts := strings.SplitN(line, ":", 2)
+						if len(parts) != 2 {
+							continue
+						}
+						encrypted := strings.TrimSpace(parts[1])
+						if len(encrypted) > 16 { // Check if value is masked
+							t.Errorf("Encrypted value not properly masked: %s", encrypted)
+						}
+					}
+				}
 			}
 
 			// Read the processed file

@@ -77,6 +77,18 @@ func debugLog(debug bool, format string, v ...interface{}) {
 	}
 }
 
+// maskEncryptedValue masks the encrypted value, leaving only the first 8 characters
+func maskEncryptedValue(value string) string {
+	if !strings.HasPrefix(value, AES) {
+		return value
+	}
+	encrypted := strings.TrimPrefix(value, AES)
+	if len(encrypted) <= 8 {
+		return AES + "********"
+	}
+	return AES + encrypted[:8] + "********"
+}
+
 func ProcessFile(filename, key, operation string, dryRun, debug bool) error {
 	// Load encryption rules
 	rules, err := loadRules(".yed_config.yml")
@@ -111,12 +123,19 @@ func ProcessFile(filename, key, operation string, dryRun, debug bool) error {
 	fmt.Printf("YAML processing completed in %v\n", elapsed)
 
 	if dryRun {
-		// Dry-run mode: print the resulting YAML
+		// Dry-run mode: print the resulting YAML with masked values
 		fmt.Println("Dry-run mode: The following changes would be applied:")
 		output := &strings.Builder{}
 		encoder := yaml.NewEncoder(output)
 		encoder.SetIndent(2)
-		if err := encoder.Encode(data); err != nil {
+
+		// Create a copy of data for masking
+		maskedData := *data
+		if len(maskedData.Content) > 0 {
+			maskNodeValues(maskedData.Content[0])
+		}
+
+		if err := encoder.Encode(&maskedData); err != nil {
 			return fmt.Errorf("error encoding YAML: %w", err)
 		}
 		fmt.Println(output.String())
@@ -129,6 +148,30 @@ func ProcessFile(filename, key, operation string, dryRun, debug bool) error {
 	}
 
 	return nil
+}
+
+// maskNodeValues recursively masks encrypted values in YAML nodes
+func maskNodeValues(node *yaml.Node) {
+	if node == nil {
+		return
+	}
+
+	switch node.Kind {
+	case yaml.ScalarNode:
+		if strings.HasPrefix(node.Value, AES) {
+			node.Value = maskEncryptedValue(node.Value)
+		}
+	case yaml.SequenceNode:
+		for _, child := range node.Content {
+			maskNodeValues(child)
+		}
+	case yaml.MappingNode:
+		for i := 0; i < len(node.Content); i += 2 {
+			if i+1 < len(node.Content) {
+				maskNodeValues(node.Content[i+1])
+			}
+		}
+	}
 }
 
 func loadRules(configFile string) ([]Rule, error) {
