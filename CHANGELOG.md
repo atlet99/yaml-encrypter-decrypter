@@ -70,14 +70,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added OSSF Scorecard integration for security assessment
 - Added security event reporting to GitHub Security tab
 - Updated golang.org/x/net to v0.38.0 to fix CVE-2024-45338 and CVE-2025-22870
-- Added branch protection rules for main branch to prevent force pushes and unauthorized deletions
-- Added GITHUB_TOKEN authentication for branch protection workflow
+- Configured branch protection rules in GitHub:
+  - Enabled branch protection for main branch
+  - Set CODEOWNERS as required reviewers
+  - Enabled linear history requirement
+  - Disabled force pushes and branch deletion
+  - Required conversation resolution
 - Added mandatory code review requirements with CODEOWNERS file
-- Configured pull request review requirements:
-  - Minimum 1 approving review required
-  - Code owner review required
-  - Stale review dismissal enabled
-  - Last push approval required
 - Restricted GITHUB_TOKEN permissions to minimum required:
   - Set contents permission to read-only
   - Added specific write permissions for checks and pull-requests
@@ -86,6 +85,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed unnecessary actions: write permission
   - Kept only required permissions for version updates
   - Maintained automatic version bumping functionality
+- Pinned GitHub Actions to specific commit hashes:
+  - Fixed actions/checkout to commit hash for better security
+  - Prevented potential supply chain attacks
+  - Improved reproducibility of workflows
 
 ### Fixed
 - Fixed base64 string validation with proper padding handling
