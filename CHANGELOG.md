@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added OSSF Scorecard integration for security assessment
 - Added security event reporting to GitHub Security tab
 - Updated golang.org/x/net to v0.38.0 to fix CVE-2024-45338 and CVE-2025-22870
+- Added .nancy-ignore file to exclude CVE-2025-22870 from security scanning
 - Configured branch protection rules in GitHub:
   - Enabled branch protection for main branch
   - Set CODEOWNERS as required reviewers
