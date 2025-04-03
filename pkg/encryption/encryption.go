@@ -13,30 +13,37 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/awnumar/memguard"
 	"golang.org/x/crypto/argon2"
 )
 
 const (
-	saltSize   = 16
+	saltSize   = 32 // Increased salt size for better security
 	nonceSize  = 12
-	keySize    = 32 // AES-256
-	iterations = 3
-	memory     = 128 * 1024 // 128 MB
-	threads    = 4
+	keySize    = 32         // AES-256
+	iterations = 4          // Increased number of iterations
+	memory     = 256 * 1024 // Increased memory usage to 256 MB
+	threads    = 8          // Increased number of threads
 	hmacSize   = sha256.Size
+	// MinPasswordLength is the minimum length required for passwords
+	MinPasswordLength = 8
 )
 
 // Encrypt encrypts a plaintext string using AES-256 GCM with Argon2 key derivation and returns a base64-encoded ciphertext.
 func Encrypt(password, plaintext string) (string, error) {
-	if len(password) < 8 {
-		return "", errors.New("password must be at least 8 characters long")
+	if len(password) < MinPasswordLength {
+		return "", fmt.Errorf("password must be at least %d characters long", MinPasswordLength)
 	}
 	if len(plaintext) == 0 {
 		return "", errors.New("plaintext cannot be empty")
 	}
 
+	// Protect plaintext with memguard
+	protectedPlaintext := memguard.NewBufferFromBytes([]byte(plaintext))
+	defer protectedPlaintext.Destroy()
+
 	// Compress plaintext
-	compressed, err := compress([]byte(plaintext))
+	compressed, err := compress(protectedPlaintext.Bytes())
 	if err != nil {
 		return "", fmt.Errorf("failed to compress plaintext: %w", err)
 	}
@@ -73,7 +80,9 @@ func Encrypt(password, plaintext string) (string, error) {
 	hmacValue := computeHMAC(key, append(nonce, ciphertext...))
 
 	// Combine salt, nonce, ciphertext, and HMAC
-	result := append(salt, nonce...)
+	result := make([]byte, 0, len(salt)+len(nonce)+len(ciphertext)+len(hmacValue))
+	result = append(result, salt...)
+	result = append(result, nonce...)
 	result = append(result, ciphertext...)
 	result = append(result, hmacValue...)
 
@@ -83,8 +92,8 @@ func Encrypt(password, plaintext string) (string, error) {
 
 // Decrypt decrypts a base64-encoded ciphertext string using AES-256 GCM and Argon2 key derivation and returns the plaintext.
 func Decrypt(password, crypt64 string) (string, error) {
-	if len(password) < 8 {
-		return "", errors.New("password must be at least 8 characters long")
+	if len(password) < MinPasswordLength {
+		return "", fmt.Errorf("password must be at least %d characters long", MinPasswordLength)
 	}
 	if len(crypt64) == 0 {
 		return "", errors.New("encrypted text cannot be empty")
@@ -136,16 +145,23 @@ func Decrypt(password, crypt64 string) (string, error) {
 		return "", fmt.Errorf("failed to decompress plaintext: %w", err)
 	}
 
-	return string(plaintext), nil
+	// Protect plaintext with memguard before returning
+	protectedPlaintext := memguard.NewBufferFromBytes(plaintext)
+	defer protectedPlaintext.Destroy()
+
+	return string(protectedPlaintext.Bytes()), nil
 }
 
-// deriveKey derives a 32-byte key from the given password and salt using Argon2.
+// deriveKey derives a 32-byte key from the given password and salt using Argon2id.
 func deriveKey(password string, salt []byte) []byte {
 	return argon2.IDKey([]byte(password), salt, iterations, memory, threads, keySize)
 }
 
 // computeHMAC computes the HMAC for given data using the provided key.
 func computeHMAC(key, data []byte) []byte {
+	if key == nil {
+		panic("key cannot be nil")
+	}
 	h := hmac.New(sha256.New, key)
 	h.Write(data)
 	return h.Sum(nil)
@@ -153,6 +169,9 @@ func computeHMAC(key, data []byte) []byte {
 
 // compress compresses data using gzip.
 func compress(data []byte) ([]byte, error) {
+	if data == nil {
+		return nil, errors.New("data cannot be nil")
+	}
 	var buf bytes.Buffer
 	writer := gzip.NewWriter(&buf)
 	_, err := writer.Write(data)
@@ -165,6 +184,9 @@ func compress(data []byte) ([]byte, error) {
 
 // decompress decompresses gzip-compressed data.
 func decompress(data []byte) ([]byte, error) {
+	if data == nil {
+		return nil, errors.New("data cannot be nil")
+	}
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err

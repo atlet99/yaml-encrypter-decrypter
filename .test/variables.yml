@@ -1,0 +1,23 @@
+smart_config:
+  auth:
+    username: admin
+    password: "SecRet@osd49"
+alex:
+  name: "Alex"
+  age: 30
+  pass: "SecRet@osd49"
+fix:
+  name: "Alex"
+  age: 30
+  cass: "SecRet@osd49"
+config:
+  name: "John"
+  age: 25
+  password: "SecRet@osd49"
+cross:
+  username: alex
+  password: "SecRet@osd49"
+axel:
+  fix:
+    username: alex
+    password: "SecRet@osd49"

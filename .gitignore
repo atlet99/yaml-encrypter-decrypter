@@ -4,7 +4,55 @@
 #.vscode
 
 .idea
-yed
+*.swp
+*.swo
+*~
 
 # Commented binary directory
 bin
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.prof
+coverage.html
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Temporary files
+*.tmp
+.tmp*
+*.log
+
+# Debug files
+debug/
+
+# Project specific
+.yed**
+.test/
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build output
+dist/
+build/
