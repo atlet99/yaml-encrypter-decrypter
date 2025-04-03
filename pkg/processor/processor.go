@@ -9,13 +9,25 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"yaml-encrypter-decrypter/pkg/encryption"
 
-	"github.com/expr-lang/expr"
+	"github.com/atlet99/yaml-encrypter-decrypter/pkg/encryption"
+
 	"gopkg.in/yaml.v3"
 )
 
-const AES = "AES256:" // Prefix for encrypted values
+const (
+	AES              = "AES256:" // Prefix for encrypted values
+	OperationEncrypt = "encrypt"
+	OperationDecrypt = "decrypt"
+
+	// Buffer and processing constants
+	DefaultBufferSize  = 1024
+	DefaultIndent      = 2
+	LargeFileThreshold = 1000
+	MaxParts           = 2
+	MaskLength         = 8
+	MinKeyLength       = 16 // Minimum length for encryption key
+)
 
 type Rule struct {
 	Path      string
@@ -87,11 +99,11 @@ func maskEncryptedValue(value string) string {
 	encrypted := strings.TrimPrefix(value, AES)
 	// Remove base64 padding before masking
 	encrypted = strings.TrimRight(encrypted, "=")
-	// Always return 8 characters + 8 asterisks for consistency
-	if len(encrypted) <= 8 {
-		return AES + encrypted + "********"
+	// Always return MaskLength characters + MaskLength asterisks for consistency
+	if len(encrypted) <= MaskLength {
+		return AES + encrypted + strings.Repeat("*", MaskLength)
 	}
-	return AES + encrypted[:8] + "********"
+	return AES + encrypted[:MaskLength] + strings.Repeat("*", MaskLength)
 }
 
 // regexCache stores compiled regular expressions
@@ -137,8 +149,7 @@ func clearRegexCache() {
 
 // ProcessFile processes a YAML file with security considerations
 func ProcessFile(filename, key, operation string, dryRun, debug bool) error {
-	// Validate operation
-	if operation != "encrypt" && operation != "decrypt" {
+	if operation != OperationEncrypt && operation != OperationDecrypt {
 		return fmt.Errorf("invalid operation: %s", operation)
 	}
 
@@ -159,7 +170,7 @@ func ProcessFile(filename, key, operation string, dryRun, debug bool) error {
 	}
 
 	// Create temporary buffer for operations
-	tempBuffer := make([]byte, 0, 1024)
+	tempBuffer := make([]byte, 0, DefaultBufferSize)
 	defer secureClear(tempBuffer)
 
 	// Process YAML file
@@ -167,7 +178,7 @@ func ProcessFile(filename, key, operation string, dryRun, debug bool) error {
 	processedPaths := make(map[string]bool)
 
 	// Process rules in parallel for large files
-	if len(data.Content) > 1000 {
+	if len(data.Content) > LargeFileThreshold {
 		errChan := make(chan error, len(rules))
 		var wg sync.WaitGroup
 		wg.Add(len(rules))
@@ -215,7 +226,7 @@ func ProcessFile(filename, key, operation string, dryRun, debug bool) error {
 		fmt.Println("Dry-run mode: The following changes would be applied:")
 		output := &strings.Builder{}
 		encoder := yaml.NewEncoder(output)
-		encoder.SetIndent(2)
+		encoder.SetIndent(DefaultIndent)
 
 		// Create a copy of data for masking
 		maskedData := *data
@@ -277,7 +288,7 @@ func writeYAMLWithBuffer(filename string, data *yaml.Node) error {
 	defer writer.Flush()
 
 	encoder := yaml.NewEncoder(writer)
-	encoder.SetIndent(2)
+	encoder.SetIndent(DefaultIndent)
 	return encoder.Encode(data)
 }
 
@@ -353,12 +364,12 @@ func loadRules(configFile string) ([]Rule, error) {
 
 	var rules []Rule
 	for _, block := range config.Encryption.EnvBlocks {
-		parts := strings.SplitN(block, " if ", 2)
+		parts := strings.SplitN(block, " if ", MaxParts)
 		rule := Rule{
 			Path:      parts[0],
 			Condition: "",
 		}
-		if len(parts) == 2 {
+		if len(parts) == MaxParts {
 			rule.Condition = parts[1]
 		}
 		rules = append(rules, rule)
@@ -366,140 +377,77 @@ func loadRules(configFile string) ([]Rule, error) {
 	return rules, nil
 }
 
-func processYAML(node *yaml.Node, key, operation string, rule Rule, currentPath string, processedPaths map[string]bool, debug bool) error {
-	if node == nil {
-		return fmt.Errorf("nil node encountered at path: %s", currentPath)
-	}
+func processMappingNodeContent(node *yaml.Node, key, operation string, rule Rule, currentPath string, processedPaths map[string]bool, debug bool) error {
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		valueNode := node.Content[i+1]
+		keyPath := currentPath + "." + keyNode.Value
 
-	if node.Kind == yaml.MappingNode {
-		if len(node.Content)%2 != 0 {
-			return fmt.Errorf("invalid mapping node at path %s: odd number of elements", currentPath)
+		if processedPaths[keyPath] {
+			continue
 		}
 
-		for i := 0; i < len(node.Content); i += 2 {
-			keyNode := node.Content[i]
-			valueNode := node.Content[i+1]
-
-			if keyNode == nil || valueNode == nil {
-				return fmt.Errorf("nil key or value node at path %s", currentPath)
-			}
-
-			newPath := strings.TrimPrefix(currentPath+"."+keyNode.Value, ".")
-
-			// Skip already processed paths
-			if processedPaths[newPath] {
-				debugLog(debug, "Skipping already processed path: %s", newPath)
-				continue
-			}
-
-			if valueNode.Kind == yaml.ScalarNode {
-				// Apply rule
-				if matchesRule(newPath, rule) && evaluateCondition(keyNode.Value, valueNode.Value, rule.Condition) {
-					if operation == "encrypt" && !strings.HasPrefix(valueNode.Value, AES) {
-						encryptedValue, err := encryption.Encrypt(key, valueNode.Value)
-						if err != nil {
-							return fmt.Errorf("failed to encrypt value for key '%s': %w", keyNode.Value, err)
-						}
-						debugLog(debug, "Encrypting key '%s': %s -> %s", keyNode.Value, valueNode.Value, AES+encryptedValue)
-						valueNode.Value = AES + encryptedValue
-						valueNode.Tag = "!!str"
-						processedPaths[newPath] = true
-					} else if operation == "decrypt" && strings.HasPrefix(valueNode.Value, AES) {
-						decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(valueNode.Value, AES))
-						if err != nil {
-							return fmt.Errorf("failed to decrypt value for key '%s': %w", keyNode.Value, err)
-						}
-						debugLog(debug, "Decrypting key '%s': %s -> %s", keyNode.Value, valueNode.Value, decryptedValue)
-						valueNode.Value = decryptedValue
-						valueNode.Tag = "!!str"
-						processedPaths[newPath] = true
-					}
-				}
-			} else if valueNode.Kind == yaml.MappingNode {
-				// Recursive processing
-				if err := processYAML(valueNode, key, operation, rule, newPath, processedPaths, debug); err != nil {
-					return err
-				}
+		if matchesRule(keyPath, rule) {
+			processedPaths[keyPath] = true
+			if err := processYAML(valueNode, key, operation, rule, keyPath, processedPaths, debug); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
 }
 
-func evaluateCondition(key, value, condition string) bool {
-	if condition == "" {
-		return true
-	}
-
-	// Handle wildcard conditions
-	if strings.Contains(condition, "*") {
-		regex := "^" + strings.ReplaceAll(regexp.QuoteMeta(condition), "\\*", ".*") + "$"
-		matched, err := regexp.MatchString(regex, value)
-		if err != nil {
-			log.Printf("Error processing regex condition '%s': %v", regex, err)
-			return false
+func processSequenceNodeContent(node *yaml.Node, key, operation string, rule Rule, currentPath string, processedPaths map[string]bool, debug bool) error {
+	for i, item := range node.Content {
+		itemPath := fmt.Sprintf("%s[%d]", currentPath, i)
+		if processedPaths[itemPath] {
+			continue
 		}
-		return matched
+
+		if matchesRule(itemPath, rule) {
+			processedPaths[itemPath] = true
+			if err := processYAML(item, key, operation, rule, itemPath, processedPaths, debug); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func processYAML(node *yaml.Node, key, operation string, rule Rule, currentPath string, processedPaths map[string]bool, debug bool) error {
+	if node == nil {
+		return fmt.Errorf("nil node encountered at path: %s", currentPath)
 	}
 
-	// Create environment with more useful functions
-	env := map[string]interface{}{
-		"key":   key,
-		"value": value,
-		// String functions
-		"len":       func(s string) int { return len(s) },
-		"contains":  strings.Contains,
-		"hasPrefix": strings.HasPrefix,
-		"hasSuffix": strings.HasSuffix,
-		"lower":     strings.ToLower,
-		"upper":     strings.ToUpper,
-		"trim":      strings.TrimSpace,
-		// Array functions
-		"all":    all,
-		"any":    any,
-		"none":   none,
-		"one":    one,
-		"filter": filter,
-		"map":    mapValues,
-	}
+	switch node.Kind {
+	case yaml.MappingNode:
+		if len(node.Content)%2 != 0 {
+			return fmt.Errorf("invalid mapping node at path: %s", currentPath)
+		}
+		return processMappingNodeContent(node, key, operation, rule, currentPath, processedPaths, debug)
 
-	program, err := expr.Compile(condition, expr.Env(env))
-	if err != nil {
-		log.Printf("Invalid condition: %s", err)
-		return false
-	}
+	case yaml.SequenceNode:
+		return processSequenceNodeContent(node, key, operation, rule, currentPath, processedPaths, debug)
 
-	result, err := expr.Run(program, env)
-	if err != nil {
-		log.Printf("Error evaluating condition '%s': %v", condition, err)
-		return false
-	}
+	case yaml.ScalarNode:
+		if matchesRule(currentPath, rule) {
+			processedPaths[currentPath] = true
+			return processScalarNode(node, currentPath, key, operation)
+		}
+		return nil
 
-	boolResult, ok := result.(bool)
-	if !ok {
-		log.Printf("Condition '%s' did not return a boolean result", condition)
-		return false
+	default:
+		return fmt.Errorf("unsupported node kind: %v at path: %s", node.Kind, currentPath)
 	}
-	return boolResult
 }
 
 func matchesRule(path string, rule Rule) bool {
-	if rule.Path == "*" {
-		return true // Match all paths
+	pattern := wildcardToRegex(rule.Path)
+	matched, err := regexp.MatchString(pattern, path)
+	if err != nil {
+		return false
 	}
-
-	// Convert wildcard patterns to regex
-	pattern := "^" + strings.ReplaceAll(regexp.QuoteMeta(rule.Path), "\\*", ".*") + "$"
-	matched, _ := regexp.MatchString(pattern, path)
-
 	return matched
-}
-
-// nodePool for object reuse
-var nodePool = sync.Pool{
-	New: func() interface{} {
-		return &yaml.Node{}
-	},
 }
 
 // secureClear clears sensitive data from memory
@@ -538,30 +486,23 @@ func ProcessNode(node *yaml.Node, path, key, operation string) error {
 
 // processScalarNode processes a scalar node
 func processScalarNode(node *yaml.Node, path, key, operation string) error {
-	if node.Value == "" {
-		return nil
-	}
-
-	if operation == "encrypt" {
-		if !strings.HasPrefix(node.Value, AES) {
-			if len(key) < 16 {
-				return fmt.Errorf("key length must be at least 16 characters")
-			}
-			encrypted, err := encryption.Encrypt(key, node.Value)
-			if err != nil {
-				return fmt.Errorf("encryption error: %w", err)
-			}
-			node.Value = AES + encrypted
+	if operation == OperationEncrypt && !strings.HasPrefix(node.Value, AES) {
+		if len(key) < MinKeyLength {
+			return fmt.Errorf("key length must be at least %d characters", MinKeyLength)
 		}
-	} else {
-		if strings.HasPrefix(node.Value, AES) {
-			encrypted := strings.TrimPrefix(node.Value, AES)
-			decrypted, err := encryption.Decrypt(key, encrypted)
-			if err != nil {
-				return fmt.Errorf("failed to decode encrypted data: %w", err)
-			}
-			node.Value = decrypted
+		encryptedValue, err := encryption.Encrypt(key, node.Value)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt value at path '%s': %w", path, err)
 		}
+		node.Value = AES + encryptedValue
+		node.Tag = "!!str"
+	} else if operation == OperationDecrypt && strings.HasPrefix(node.Value, AES) {
+		decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
+		if err != nil {
+			return fmt.Errorf("failed to decode encrypted data")
+		}
+		node.Value = decryptedValue
+		node.Tag = "!!str"
 	}
 	return nil
 }

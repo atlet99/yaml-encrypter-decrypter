@@ -133,3 +133,20 @@ help:
 	@echo "  fmt             - Check code formatting"
 	@echo "  vet             - Analyze code with go vet"
 	@echo "  help            - Display this help message"
+
+.PHONY: test lint lint-fix install-lint
+
+# Install golangci-lint
+install-lint:
+	@echo "Installing golangci-lint..."
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Run linter
+lint:
+	@echo "Running linter..."
+	@~/go/bin/golangci-lint run
+
+# Run linter with auto-fix
+lint-fix:
+	@echo "Running linter with auto-fix..."
+	@~/go/bin/golangci-lint run --fix

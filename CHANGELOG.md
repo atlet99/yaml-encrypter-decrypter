@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added tests for empty value handling
 - Added tests for various YAML node types
 - Added performance benchmarks
+- Added support for parallel file processing
+- Added golangci-lint configuration
+- Added tests for parallel processing
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -43,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Translated all code comments to English for better international collaboration
 - Optimized TestParallelProcessing by reducing test data size and using shorter encryption key
 - Improved test performance by reducing the number of test keys from 1000 to 10
+- Added error handling for io.Copy in tests
+- Removed unused nodePool variable
+- Improved error handling in ProcessFile and ProcessNode functions
+- Optimized test performance
+- Unified error messages for better consistency
+- Added MinKeyLength constant to replace magic number
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions

@@ -54,7 +54,7 @@ func TestProcessFile(t *testing.T) {
 			dryRun:        false,
 			debug:         false,
 			wantError:     true,
-			errorContains: "failed to decrypt value",
+			errorContains: "failed to decode encrypted data",
 		},
 		{
 			name:      "dry run",
@@ -146,7 +146,9 @@ func TestProcessFile(t *testing.T) {
 			// Start goroutine to capture output
 			go func() {
 				defer close(done)
-				io.Copy(&output, r)
+				if _, err := io.Copy(&output, r); err != nil {
+					t.Errorf("Failed to capture output: %v", err)
+				}
 			}()
 
 			// Process the file

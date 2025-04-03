@@ -6,55 +6,67 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"yaml-encrypter-decrypter/pkg/processor"
+
+	"github.com/atlet99/yaml-encrypter-decrypter/pkg/processor"
 
 	"github.com/awnumar/memguard"
 )
 
 func main() {
+	os.Exit(mainWithExitCode())
+}
+
+func mainWithExitCode() int {
 	// Parse command line arguments
-	filename := flag.String("file", "", "YAML file to process")
-	key := flag.String("key", "", "Encryption key")
-	operation := flag.String("operation", "encrypt", "Operation to perform (encrypt/decrypt)")
-	dryRun := flag.Bool("dry-run", false, "Show changes without applying them")
+	filename := flag.String("file", "", "Path to the YAML file")
+	key := flag.String("key", "", "Encryption/decryption key")
+	operation := flag.String("operation", "", "Operation to perform (encrypt/decrypt)")
+	dryRun := flag.Bool("dry-run", false, "Print the result without modifying the file")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
-	// Validate required arguments
-	if *filename == "" {
-		log.Fatal("Error: -file argument is required")
-	}
-	if *key == "" {
-		log.Fatal("Error: -key argument is required")
-	}
-	if *operation != "encrypt" && *operation != "decrypt" {
-		log.Fatal("Error: -operation must be either 'encrypt' or 'decrypt'")
+	// Validate required flags
+	if *filename == "" || *key == "" || *operation == "" {
+		log.Println("Error: all flags are required")
+		flag.Usage()
+		return 1
 	}
 
-	// Create a secure buffer for the encryption key
-	keyBuffer := memguard.NewBufferFromBytes([]byte(*key))
+	// Initialize memguard
+	memguard.CatchInterrupt()
+	defer memguard.Purge()
+
+	// Run the main logic
+	if err := run(*filename, *key, *operation, *dryRun, *debug); err != nil {
+		log.Printf("Error: %v\n", err)
+		return 1
+	}
+
+	return 0
+}
+
+func run(filename, key, operation string, dryRun, debug bool) error {
+	// Create a secure buffer for the key
+	keyBuffer := memguard.NewBufferFromBytes([]byte(key))
 	defer keyBuffer.Destroy()
 
-	// Set up signal handling for graceful shutdown
+	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Process the file
+	// Create error channel
 	errChan := make(chan error, 1)
+
+	// Process file in a goroutine
 	go func() {
-		errChan <- processor.ProcessFile(*filename, string(keyBuffer.Bytes()), *operation, *dryRun, *debug)
+		errChan <- processor.ProcessFile(filename, string(keyBuffer.Bytes()), operation, dryRun, debug)
 	}()
 
 	// Wait for either completion or interruption
 	select {
 	case err := <-errChan:
-		if err != nil {
-			log.Fatalf("Error processing file: %v", err)
-		}
+		return err
 	case <-sigChan:
-		log.Println("\nReceived interrupt signal. Cleaning up...")
-		// Clean up resources
-		keyBuffer.Destroy()
-		os.Exit(1)
+		return nil
 	}
 }

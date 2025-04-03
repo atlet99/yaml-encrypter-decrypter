@@ -25,12 +25,14 @@ const (
 	memory     = 256 * 1024 // Increased memory usage to 256 MB
 	threads    = 8          // Increased number of threads
 	hmacSize   = sha256.Size
+	// MinPasswordLength is the minimum length required for passwords
+	MinPasswordLength = 8
 )
 
 // Encrypt encrypts a plaintext string using AES-256 GCM with Argon2 key derivation and returns a base64-encoded ciphertext.
 func Encrypt(password, plaintext string) (string, error) {
-	if len(password) < 8 {
-		return "", errors.New("password must be at least 8 characters long")
+	if len(password) < MinPasswordLength {
+		return "", fmt.Errorf("password must be at least %d characters long", MinPasswordLength)
 	}
 	if len(plaintext) == 0 {
 		return "", errors.New("plaintext cannot be empty")
@@ -78,7 +80,9 @@ func Encrypt(password, plaintext string) (string, error) {
 	hmacValue := computeHMAC(key, append(nonce, ciphertext...))
 
 	// Combine salt, nonce, ciphertext, and HMAC
-	result := append(salt, nonce...)
+	result := make([]byte, 0, len(salt)+len(nonce)+len(ciphertext)+len(hmacValue))
+	result = append(result, salt...)
+	result = append(result, nonce...)
 	result = append(result, ciphertext...)
 	result = append(result, hmacValue...)
 
@@ -88,8 +92,8 @@ func Encrypt(password, plaintext string) (string, error) {
 
 // Decrypt decrypts a base64-encoded ciphertext string using AES-256 GCM and Argon2 key derivation and returns the plaintext.
 func Decrypt(password, crypt64 string) (string, error) {
-	if len(password) < 8 {
-		return "", errors.New("password must be at least 8 characters long")
+	if len(password) < MinPasswordLength {
+		return "", fmt.Errorf("password must be at least %d characters long", MinPasswordLength)
 	}
 	if len(crypt64) == 0 {
 		return "", errors.New("encrypted text cannot be empty")
