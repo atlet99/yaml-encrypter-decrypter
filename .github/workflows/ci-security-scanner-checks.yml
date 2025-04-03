@@ -77,7 +77,7 @@ jobs:
       - name: Nancy
         uses: sonatype-nexus-community/nancy-github-action@395e2fb168f674f96502e5652103d112899ea369 # main
         with:
-          nancyVersion: "v1.0.46"
+          nancyVersion: "v1.0.48"
           nancyCommand: sleuth --loud  
   ossf_scan:
     name: openssf-scorecard
