@@ -33,7 +33,7 @@ jobs:
           egress-policy: audit
 
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4.2.2
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # master
         with:
@@ -62,14 +62,14 @@ jobs:
           egress-policy: audit
         
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4.2.2
       - name: Get Go Version
         run: |
           #!/bin/bash
           GOVERSION=$({ [ -f .go-version ] && cat .go-version; })
           echo "GOVERSION=$GOVERSION" >> $GITHUB_ENV
       - name: Setup Go
-        uses: actisetup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        uses: actions/setup-go@v5.1.0
         with:
           go-version: ${{ env.GOVERSION }}
       - name: WriteGoList
@@ -92,7 +92,7 @@ jobs:
           egress-policy: audit
         
       - name: Checkout code
-        uses: acticheckout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4.2.2
       - name: Run analysis
         uses: ossf/scorecard-action@dde01de2fdfb29acf692f25ffb46c10a6655057e # main
         with:
