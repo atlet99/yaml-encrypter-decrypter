@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for parallel file processing
 - Added golangci-lint configuration
 - Added tests for parallel processing
+- Added security scanning workflows with Trivy, Nancy, and OSSF Scorecard
+- Added GitHub Actions workflow for security checks
+- Added security scanning configuration files
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -52,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optimized test performance
 - Unified error messages for better consistency
 - Added MinKeyLength constant to replace magic number
+- Updated GitHub Actions workflow configurations
+- Fixed GitHub Actions syntax in security scanning workflows
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
@@ -60,6 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Implemented secure memory handling for sensitive data using memguard
 - Added proper cleanup of sensitive data on program interruption
+- Added automated security scanning with Trivy for vulnerability detection
+- Added dependency scanning with Nancy
+- Added OSSF Scorecard integration for security assessment
+- Added security event reporting to GitHub Security tab
 
 ### Fixed
 - Fixed base64 string validation with proper padding handling
