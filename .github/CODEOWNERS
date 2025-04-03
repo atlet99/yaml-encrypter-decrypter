@@ -1,0 +1,12 @@
+# Default owners for everything in the repo
+* @atlet99
+
+# Backend
+*.go @atlet99
+
+# Configuration files
+*.yml @atlet99
+*.yaml @atlet99
+
+# Documentation
+*.md @atlet99 
