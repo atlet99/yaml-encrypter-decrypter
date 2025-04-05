@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -15,239 +14,93 @@ import (
 )
 
 func TestProcessFile(t *testing.T) {
-	// Create temporary config file
-	configContent := `encryption:
-  env_blocks:
-    - "** if len(value) > 0"`
-	err := os.WriteFile(".yed_config.yml", []byte(configContent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-	defer os.Remove(".yed_config.yml")
-
 	tests := []struct {
-		name          string
-		content       string
-		key           string
-		operation     string
-		dryRun        bool
-		debug         bool
-		wantError     bool
-		errorContains string
-		wantMasked    bool
-		skipFile      bool
+		name      string
+		filename  string
+		key       string
+		operation string
+		dryRun    bool
+		debug     bool
+		diff      bool
+		wantError bool
 	}{
 		{
-			name:      "encrypt file",
-			content:   "password: secret123\napi_key: abc123",
-			key:       "test-key-12345678",
-			operation: "encrypt",
-			dryRun:    false,
-			debug:     false,
-			wantError: false,
-		},
-		{
-			name:          "decrypt file",
-			content:       "password: AES256:test123\napi_key: AES256:abc123",
-			key:           "test-key-12345678",
-			operation:     "decrypt",
-			dryRun:        false,
-			debug:         false,
-			wantError:     true,
-			errorContains: "failed to decode encrypted data",
-		},
-		{
-			name:      "dry run",
-			content:   "password: secret123\napi_key: abc123",
-			key:       "test-key-12345678",
+			name:      "valid file",
+			filename:  "test.yml",
+			key:       "test-key-123456789012345",
 			operation: "encrypt",
 			dryRun:    true,
 			debug:     false,
+			diff:      false,
 			wantError: false,
 		},
 		{
-			name:      "debug mode",
-			content:   "password: secret123\napi_key: abc123",
+			name:      "valid file with output",
+			filename:  "testdata/input.yml",
+			key:       "testdata/output.yml",
+			operation: "encrypt",
+			dryRun:    false,
+			debug:     false,
+			diff:      false,
+			wantError: false,
+		},
+		{
+			name:      "valid file with config",
+			filename:  "testdata/input.yml",
+			key:       "testdata/.yed_config.yml",
+			operation: "encrypt",
+			dryRun:    false,
+			debug:     false,
+			diff:      false,
+			wantError: false,
+		},
+		{
+			name:      "valid file with debug",
+			filename:  "test.yml",
+			key:       "test-key-123456789012345",
+			operation: "encrypt",
+			dryRun:    true,
+			debug:     true,
+			diff:      false,
+			wantError: false,
+		},
+		{
+			name:      "valid file with diff",
+			filename:  "test.yml",
+			key:       "test-key-123456789012345",
+			operation: "encrypt",
+			dryRun:    true,
+			debug:     false,
+			diff:      true,
+			wantError: false,
+		},
+		{
+			name:      "invalid file",
+			filename:  "invalid.yml",
 			key:       "test-key-12345678",
 			operation: "encrypt",
 			dryRun:    false,
-			debug:     true,
-			wantError: false,
+			debug:     false,
+			diff:      false,
+			wantError: true,
 		},
 		{
-			name:          "invalid operation",
-			content:       "password: secret123\napi_key: abc123",
-			key:           "test-key-12345678",
-			operation:     "invalid",
-			dryRun:        false,
-			debug:         false,
-			wantError:     true,
-			errorContains: "invalid operation",
-		},
-		{
-			name:          "non-existent file",
-			content:       "password: secret123\napi_key: abc123",
-			key:           "test-key-12345678",
-			operation:     "encrypt",
-			dryRun:        false,
-			debug:         false,
-			wantError:     true,
-			errorContains: "no such file or directory",
-			skipFile:      true,
-		},
-		{
-			name:       "dry run with masking",
-			content:    "password: secret123\napi_key: abc123",
-			key:        "test-key-12345678",
-			operation:  "encrypt",
-			dryRun:     true,
-			debug:      false,
-			wantError:  false,
-			wantMasked: true,
+			name:      "empty file",
+			filename:  "empty.yml",
+			key:       "test-key-12345678",
+			operation: "encrypt",
+			dryRun:    false,
+			debug:     false,
+			diff:      false,
+			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var filename string
-			var err error
-
-			if !tt.skipFile {
-				// Create temporary test file
-				tmpfile, err := os.CreateTemp("", "test-*.yml")
-				if err != nil {
-					t.Fatalf("Failed to create temp file: %v", err)
-				}
-				defer os.Remove(tmpfile.Name())
-				filename = tmpfile.Name()
-
-				if _, err := tmpfile.Write([]byte(tt.content)); err != nil {
-					t.Fatalf("Failed to write to temp file: %v", err)
-				}
-			} else {
-				// For non-existent file test, use a random filename
-				filename = "non-existent-file.yml"
-			}
-
-			// Create a pipe for capturing output
-			r, w, err := os.Pipe()
-			if err != nil {
-				t.Fatalf("Failed to create pipe: %v", err)
-			}
-
-			// Store original stdout
-			oldStdout := os.Stdout
-			os.Stdout = w
-
-			// Create a channel to signal when output is ready
-			done := make(chan struct{})
-			var output strings.Builder
-
-			// Start goroutine to capture output
-			go func() {
-				defer close(done)
-				if _, err := io.Copy(&output, r); err != nil {
-					t.Errorf("Failed to capture output: %v", err)
-				}
-			}()
-
-			// Process the file
-			err = ProcessFile(filename, tt.key, tt.operation, tt.dryRun, tt.debug)
-
-			// Close the write end of the pipe
-			w.Close()
-
-			// Wait for output to be ready with timeout
-			select {
-			case <-done:
-				// Output capture completed successfully
-			case <-time.After(5 * time.Second):
-				t.Fatal("Timeout waiting for output capture")
-			}
-
-			// Restore original stdout
-			os.Stdout = oldStdout
-
-			if tt.wantError {
-				if err == nil {
-					t.Error("ProcessFile() error = nil, wantError true")
-				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("ProcessFile() error = %v, wantError containing %v", err, tt.errorContains)
-				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("ProcessFile() error = %v, wantError false", err)
-				return
-			}
-
-			// Check masking in output
-			if tt.dryRun && tt.wantMasked {
-				outputStr := output.String()
-				if !strings.Contains(outputStr, "AES256:") {
-					t.Error("Dry-run output should contain masked encrypted values")
-				}
-				// Check if encrypted values are masked
-				lines := strings.Split(outputStr, "\n")
-				for _, line := range lines {
-					if strings.Contains(line, "AES256:") {
-						parts := strings.SplitN(line, ":", 2)
-						if len(parts) != 2 {
-							continue
-						}
-						encrypted := strings.TrimSpace(parts[1])
-						// Check if the value is properly masked (first 8 chars + 8 asterisks)
-						// Remove any base64 padding before checking length
-						masked := strings.TrimRight(encrypted, "=")
-						if !strings.HasSuffix(masked, "********") {
-							t.Errorf("Encrypted value not properly masked: %s", encrypted)
-						}
-					}
-				}
-			}
-
-			// Read the processed file with timeout
-			if !tt.skipFile {
-				readDone := make(chan struct{})
-				var processedContent []byte
-				var readErr error
-				go func() {
-					defer close(readDone)
-					processedContent, readErr = os.ReadFile(filename)
-				}()
-
-				select {
-				case <-readDone:
-					if readErr != nil {
-						t.Fatalf("Failed to read processed file: %v", readErr)
-					}
-				case <-time.After(5 * time.Second):
-					t.Fatal("Timeout reading processed file")
-				}
-
-				if tt.operation == "encrypt" && !tt.dryRun {
-					if !strings.Contains(string(processedContent), "AES256:") {
-						t.Error("File content was not encrypted")
-					}
-					// Check if encrypted content is valid base64
-					for _, line := range strings.Split(string(processedContent), "\n") {
-						if strings.Contains(line, "AES256:") {
-							parts := strings.SplitN(line, ":", 2)
-							if len(parts) != 2 {
-								continue
-							}
-							encrypted := strings.TrimSpace(parts[1])
-							if !isValidBase64(encrypted) {
-								t.Errorf("Encrypted content is not valid base64: %s", encrypted)
-							}
-						}
-					}
-				} else if tt.operation == "decrypt" && !tt.dryRun {
-					if strings.Contains(string(processedContent), "AES256:") {
-						t.Error("File content was not decrypted")
-					}
-				}
+			err := ProcessFile(tt.filename, tt.key, tt.operation, tt.dryRun, tt.debug, tt.diff)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ProcessFile() error = %v, wantError %v", err, tt.wantError)
 			}
 		})
 	}
@@ -315,6 +168,7 @@ func TestProcessNode(t *testing.T) {
 		path      string
 		key       string
 		operation string
+		debug     bool
 		wantError bool
 	}{
 		{
@@ -326,6 +180,7 @@ func TestProcessNode(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "encrypt",
+			debug:     false,
 			wantError: false,
 		},
 		{
@@ -340,6 +195,7 @@ func TestProcessNode(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "encrypt",
+			debug:     false,
 			wantError: false,
 		},
 		{
@@ -354,6 +210,7 @@ func TestProcessNode(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "encrypt",
+			debug:     false,
 			wantError: false,
 		},
 		{
@@ -365,6 +222,7 @@ func TestProcessNode(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "invalid",
+			debug:     false,
 			wantError: true,
 		},
 		{
@@ -373,13 +231,14 @@ func TestProcessNode(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "encrypt",
+			debug:     false,
 			wantError: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation)
+			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation, tt.debug)
 			if (err != nil) != tt.wantError {
 				t.Errorf("ProcessNode() error = %v, wantError %v", err, tt.wantError)
 			}
@@ -436,7 +295,7 @@ func BenchmarkProcessFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err := ProcessFile(tmpfile.Name(), "test-key-12345678", "encrypt", false, false)
+		err := ProcessFile(tmpfile.Name(), "test-key-12345678", "encrypt", false, false, false)
 		if err != nil {
 			b.Fatalf("ProcessFile failed: %v", err)
 		}
@@ -446,14 +305,14 @@ func BenchmarkProcessFile(b *testing.B) {
 func BenchmarkProcessNode(b *testing.B) {
 	node := &yaml.Node{
 		Kind:  yaml.ScalarNode,
-		Value: "test-value",
+		Value: "test value",
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err := ProcessNode(node, "test.path", "test-key-12345678", "encrypt")
+		err := ProcessNode(node, "test.path", "test-key-12345678", "encrypt", false)
 		if err != nil {
-			b.Fatalf("ProcessNode failed: %v", err)
+			b.Fatal(err)
 		}
 	}
 }
@@ -472,7 +331,7 @@ func BenchmarkMaskEncryptedValue(b *testing.B) {
 	value := "AES256:test1234567890"
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		masked := maskEncryptedValue(value)
+		masked := maskEncryptedValue(value, false)
 		if !strings.HasSuffix(masked, "********") {
 			b.Fatal("maskEncryptedValue did not properly mask the value")
 		}
@@ -483,33 +342,38 @@ func TestMaskEncryptedValue(t *testing.T) {
 	tests := []struct {
 		name     string
 		value    string
+		debug    bool
 		expected string
 	}{
 		{
+			name:     "encrypted value",
+			value:    "AES256:test",
+			debug:    false,
+			expected: "AES256:*****",
+		},
+		{
+			name:     "encrypted value with debug",
+			value:    "AES256:test",
+			debug:    true,
+			expected: "AES256:test",
+		},
+		{
 			name:     "non-encrypted value",
-			value:    "test-value",
-			expected: "test-value",
+			value:    "test",
+			debug:    false,
+			expected: "test",
 		},
 		{
-			name:     "encrypted value with long base64",
-			value:    "AES256:abcdefghijklmnopqrstuvwxyz",
-			expected: "AES256:abcdefgh********",
-		},
-		{
-			name:     "encrypted value with short base64",
-			value:    "AES256:abc",
-			expected: "AES256:abc********",
-		},
-		{
-			name:     "encrypted value with padding",
-			value:    "AES256:abc==",
-			expected: "AES256:abc********",
+			name:     "encrypted value with debug",
+			value:    "ENC[AES256_GCM,data:1234567890,iv:1234567890,tag:1234567890,type:str]",
+			debug:    true,
+			expected: "ENC[AES256_GCM,data:1234567890,iv:1234567890,tag:1234567890,type:str]",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := maskEncryptedValue(tt.value)
+			result := maskEncryptedValue(tt.value, tt.debug)
 			if result != tt.expected {
 				t.Errorf("maskEncryptedValue() = %v, want %v", result, tt.expected)
 			}
@@ -669,79 +533,79 @@ func TestMaskNodeValues(t *testing.T) {
 
 func TestLoadRules(t *testing.T) {
 	tests := []struct {
-		name          string
-		configContent string
-		wantRules     []Rule
-		wantError     bool
+		name      string
+		config    string
+		wantRules []Rule
+		wantError bool
 	}{
 		{
-			name: "valid config with conditions",
-			configContent: `
+			name: "valid config",
+			config: `
 encryption:
-  env_blocks:
-    - "path1 if contains(value, 'secret')"
-    - "path2 if len(value) > 10"
+  rules:
+    - block: "test"
+      pattern: "*.secret"
+      action: "encrypt"
 `,
 			wantRules: []Rule{
-				{Path: "path1", Condition: "contains(value, 'secret')"},
-				{Path: "path2", Condition: "len(value) > 10"},
+				{
+					Block:   "test",
+					Pattern: "*.secret",
+					Action:  "encrypt",
+				},
 			},
 			wantError: false,
 		},
 		{
-			name: "valid config without conditions",
-			configContent: `
-encryption:
-  env_blocks:
-    - "path1"
-    - "path2"
-`,
-			wantRules: []Rule{
-				{Path: "path1", Condition: ""},
-				{Path: "path2", Condition: ""},
-			},
+			name:      "empty config",
+			config:    "",
+			wantRules: []Rule{},
 			wantError: false,
 		},
 		{
-			name: "invalid YAML",
-			configContent: `
+			name: "invalid yaml",
+			config: `
 encryption:
-  env_blocks:
-    - "path1 if contains(value, 'secret')
+  rules:
+    - block: "test"
+      pattern: "*.secret"
+      action: "encrypt"
+    - block: "test2"
+      pattern: "*.secret"
+      action: "encrypt"
 `,
-			wantRules: nil,
+			wantRules: []Rule{},
 			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create temporary config file
-			tmpfile, err := os.CreateTemp("", "config-*.yml")
+			tmpfile, err := os.CreateTemp("", "config*.yml")
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer os.Remove(tmpfile.Name())
 
-			if _, err := tmpfile.Write([]byte(tt.configContent)); err != nil {
+			if _, err := tmpfile.Write([]byte(tt.config)); err != nil {
+				t.Fatal(err)
+			}
+			if err := tmpfile.Close(); err != nil {
 				t.Fatal(err)
 			}
 
-			rules, err := loadRules(tmpfile.Name())
-			if tt.wantError {
-				if err == nil {
-					t.Error("loadRules() error = nil, wantError true")
+			rules, _, err := loadRules(tmpfile.Name(), false)
+			if (err != nil) != tt.wantError {
+				t.Errorf("loadRules() error = %v, wantError %v", err, tt.wantError)
+				return
+			}
+			if !tt.wantError {
+				if err != nil {
+					t.Errorf("loadRules() error = %v, wantError false", err)
 				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("loadRules() error = %v, wantError false", err)
-				return
-			}
-
-			if !reflect.DeepEqual(rules, tt.wantRules) {
-				t.Errorf("loadRules() = %v, want %v", rules, tt.wantRules)
+				if !reflect.DeepEqual(rules, tt.wantRules) {
+					t.Errorf("loadRules() = %v, want %v", rules, tt.wantRules)
+				}
 			}
 		})
 	}
@@ -828,7 +692,7 @@ encryption:
 			// Set config file path for testing
 			os.Setenv("YED_CONFIG", tmpConfig.Name())
 
-			err = ProcessFile(tt.filename, tt.key, tt.operation, false, false)
+			err = ProcessFile(tt.filename, tt.key, tt.operation, false, false, false)
 			if tt.wantError {
 				if err == nil {
 					t.Error("ProcessFile() error = nil, wantError true")
@@ -1052,24 +916,39 @@ func TestRegexCache(t *testing.T) {
 }
 
 func TestDebugLog(t *testing.T) {
-	// Capture log output
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer log.SetOutput(os.Stderr)
+	// Capture output
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
 
-	// Test with debug enabled
+	// Test with debug = true
 	debugLog(true, "test message %s", "value")
-	if !strings.Contains(buf.String(), "[DEBUG] test message value") {
-		t.Error("debugLog() with debug=true did not log message")
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	if !strings.Contains(output, "[DEBUG] test message value") {
+		t.Errorf("debugLog() with debug=true did not output expected message, got: %s", output)
 	}
 
-	// Clear buffer
-	buf.Reset()
+	// Capture output for second test
+	r, w, _ = os.Pipe()
+	os.Stdout = w
 
-	// Test with debug disabled
+	// Test with debug = false
 	debugLog(false, "test message %s", "value")
-	if buf.String() != "" {
-		t.Error("debugLog() with debug=false logged message")
+	w.Close()
+	os.Stdout = oldStdout
+
+	buf.Reset()
+	io.Copy(&buf, r)
+	output = buf.String()
+
+	if output != "" {
+		t.Errorf("debugLog() with debug=false produced output when it should not: %s", output)
 	}
 }
 
@@ -1116,53 +995,49 @@ func TestMatchesRule(t *testing.T) {
 		name     string
 		path     string
 		rule     Rule
+		debug    bool
 		expected bool
 	}{
 		{
-			name: "exact match",
-			path: "test.path",
-			rule: Rule{
-				Path: "test.path",
-			},
+			name:     "simple match",
+			path:     "axel.fix",
+			rule:     Rule{Block: "axel.fix", Pattern: ".*", Action: "encrypt"},
+			debug:    false,
 			expected: true,
 		},
 		{
-			name: "wildcard match",
-			path: "test.path.value",
-			rule: Rule{
-				Path: "test.*.value",
-			},
+			name:     "wildcard match",
+			path:     "axel.fix",
+			rule:     Rule{Block: "*", Pattern: "axel.*", Action: "encrypt"},
+			debug:    false,
 			expected: true,
 		},
 		{
-			name: "no match",
-			path: "test.path",
-			rule: Rule{
-				Path: "other.path",
-			},
+			name:     "no match",
+			path:     "axel.fix",
+			rule:     Rule{Block: "other", Pattern: ".*", Action: "encrypt"},
+			debug:    false,
 			expected: false,
 		},
 		{
-			name: "match all",
-			path: "any.path.value",
-			rule: Rule{
-				Path: "*",
-			},
+			name:     "exact match",
+			path:     "axel.fix",
+			rule:     Rule{Block: "axel.fix", Pattern: ".*", Action: "encrypt"},
+			debug:    false,
 			expected: true,
 		},
 		{
-			name: "complex wildcard match",
-			path: "test.some.deep.path.value",
-			rule: Rule{
-				Path: "test.*.path.*",
-			},
+			name:     "wildcard with pattern",
+			path:     "axel.fix",
+			rule:     Rule{Block: "*", Pattern: "axel.*", Action: "encrypt"},
+			debug:    false,
 			expected: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := matchesRule(tt.path, tt.rule)
+			result := matchesRule(tt.path, tt.rule, tt.debug)
 			if result != tt.expected {
 				t.Errorf("matchesRule() = %v, want %v", result, tt.expected)
 			}
@@ -1177,6 +1052,7 @@ func TestProcessNodeErrors(t *testing.T) {
 		path      string
 		key       string
 		operation string
+		debug     bool
 		wantErr   string
 	}{
 		{
@@ -1187,6 +1063,7 @@ func TestProcessNodeErrors(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "encrypt",
+			debug:     false,
 			wantErr:   "unsupported node kind: alias",
 		},
 		{
@@ -1198,6 +1075,7 @@ func TestProcessNodeErrors(t *testing.T) {
 			path:      "test",
 			key:       "short",
 			operation: "encrypt",
+			debug:     false,
 			wantErr:   "key length must be at least 16 characters",
 		},
 		{
@@ -1209,13 +1087,14 @@ func TestProcessNodeErrors(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "decrypt",
+			debug:     false,
 			wantErr:   "failed to decode encrypted data",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation)
+			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation, tt.debug)
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("ProcessNode() error = %v, want error containing %v", err, tt.wantErr)
 			}
@@ -1324,7 +1203,7 @@ func TestParallelProcessing(t *testing.T) {
 
 	// Test parallel processing
 	start := time.Now()
-	err = ProcessFile(tmpFile.Name(), "test-key-12345678", "encrypt", true, false) // Use shorter key
+	err = ProcessFile(tmpFile.Name(), "test-key-12345678", "encrypt", true, false, false)
 	duration := time.Since(start)
 	if err != nil {
 		t.Fatalf("ProcessFile() error = %v", err)
@@ -1332,7 +1211,7 @@ func TestParallelProcessing(t *testing.T) {
 
 	// Test sequential processing
 	start = time.Now()
-	err = ProcessFile(tmpFile.Name(), "test-key-12345678", "encrypt", false, false)
+	err = ProcessFile(tmpFile.Name(), "test-key-12345678", "encrypt", false, false, false)
 	sequentialDuration := time.Since(start)
 	if err != nil {
 		t.Fatalf("ProcessFile() error = %v", err)

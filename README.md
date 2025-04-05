@@ -81,15 +81,63 @@ The tool uses a `.yed_config.yml` file for customizable behavior. Place this fil
 **Example `.yed_config.yml`:**
 ```yaml
 encryption:
-  key: "my-secure-key"    # default encryption key, pls, do not used in production, only YED_ENCRYPTION_KEY
-  env_blocks:
-    - "secure.password"
-    - "secure.api_key"
-    - "variable.default if sensitive = true" # if it meets the condition
-    - "** if len(value) > 0" # encrypt all non-empty values
-logging:
-  level: "debug"           # Log level (debug, info, warn, error)
+  rules:
+    - name: "skip_axel_fix"
+      block: "axel.fix"
+      pattern: "**"
+      action: "none"
+      description: "Skip encryption for all values in axel.fix block"
+    
+    - name: "encrypt_smart_config"
+      block: "smart_config"
+      pattern: "**"
+      description: "Encrypt all values in smart_config block"
+    
+    - name: "encrypt_passwords"
+      block: "*"
+      pattern: "pass*"
+      description: "Encrypt all password fields globally"
+  
+  unsecure_diff: false  # Set to true to show actual values in diff mode
 ```
+
+### **Rule Configuration**
+
+Rules in `.yed_config.yml` define which parts of your YAML file should be encrypted or skipped. Each rule consists of:
+
+- `name`: A unique identifier for the rule
+- `block`: The YAML block to which the rule applies (e.g., "smart_config" or "*" for any block)
+- `pattern`: Pattern for matching fields within the block (e.g., "**" for all fields, "pass*" for fields starting with "pass")
+- `action`: Optional. Use "none" to skip encryption for matching paths
+- `description`: Human-readable description of the rule's purpose
+
+**Important Rule Processing Details:**
+
+1. **Priority Order**: Rules with `action: none` are processed first to ensure paths are properly excluded from encryption.
+2. **Recursive Exclusion**: When a path matches a rule with `action: none`, all its nested paths are also excluded from encryption.
+3. **Pattern Matching**:
+   - `**` matches any number of nested fields
+   - `*` matches any characters within a single field name
+   - Exact matches take precedence over patterns
+
+**Example Rule Applications:**
+
+```yaml
+# Example YAML structure
+smart_config:
+  auth:
+    username: "admin"
+    password: "secret123"
+axel:
+  fix:
+    name: "test"
+    password: "test123"
+```
+
+With the example rules above:
+- All fields under `smart_config` will be encrypted
+- All fields under `axel.fix` will be skipped (not encrypted)
+- Any field matching `pass*` in other blocks will be encrypted
 
 ### **Environment Variable**
 
@@ -97,7 +145,7 @@ Override the encryption key with `YED_ENCRYPTION_KEY`:
 ```bash
 export YED_ENCRYPTION_KEY="my-super-secure-key"
 ```
-**(!) At least 8 characters for passphrase.**
+**(!) At least 16 characters for passphrase.**
 
 ### **Command-Line Interface**
 
@@ -105,29 +153,34 @@ export YED_ENCRYPTION_KEY="my-super-secure-key"
 
 **Encrypt a Single Value**
 ```bash
-./bin/yed -operation=encrypt -value="MySecretData"
+./bin/yed --operation encrypt --value="MySecretData" --key="my-super-secure-key"
 ```
 
 **Decrypt a Single Value**
 ```bash
-./bin/yed -operation=decrypt -value="AES256:...encrypted_value..."
+./bin/yed --operation decrypt --value="AES256:...encrypted_value..." --key="my-super-secure-key"
 ```
 
 ### **Process a YAML File**
 
-**Encrypt or decrypt specific blocks in a YAML file:**
+**Encrypt or decrypt a YAML file:**
 ```bash
-./bin/yed -operation=encrypt -filename="config.yaml" -env-blocks="secure.password,secure.api_key"
+./bin/yed --file config.yaml --key="my-super-secure-key" --operation encrypt
 ```
 
-**Dry-Run Mode:**
+**Dry-Run Mode with Diff:**
 ```bash
-./bin/yed -operation=encrypt -filename="config.yaml" -dry-run
+./bin/yed --file config.yaml --key="my-super-secure-key" --operation encrypt --dry-run --diff
+```
+
+**Debug Mode:**
+```bash
+./bin/yed --file config.yaml --key="my-super-secure-key" --operation encrypt --debug
 ```
 
 ---
 
-**Makefile Commands**
+### **Makefile Commands**
 
 | Target            | Description                                                    |
 | ----------------- | -------------------------------------------------------------- |
@@ -181,22 +234,23 @@ make build-cross
 
 *Example:*
 ```bash
-./bin/yed -operation=encrypt -filename=test.tf
+./bin/yed --file test.yml --key="my-super-secure-key" --operation encrypt
 ```
 
 *Output:*
 ```bash
 YAML processing completed in 227.072083ms
-File test.tf updated successfully.
+File test.yml updated successfully.
 ```
 
-*Dry-run mode:*
+*Dry-run mode with diff:*
 ```bash
-yed -filename test.tf --operation encrypt --dry-run
+./bin/yed --file test.yml --key="my-super-secure-key" --operation encrypt --dry-run --diff
 YAML processing completed in 237.009042ms
-Dry-run mode enabled. The following changes would be applied:
-- [6]: default = "sensitive_hidden_text"
-+ [6]: default = "AES256:BVBBV2l...xxOjYyjGdloHq8bBpg=="
+Dry-run mode: The following changes would be applied:
+smart_config.auth.password:
+  - secret123
+  + AES256:BVBBV2l...xxOjYyjGdloHq8bBpg==
 ```
 
 ### **License**

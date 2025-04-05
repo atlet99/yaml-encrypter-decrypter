@@ -3,7 +3,7 @@ BINARY_NAME := yed
 OUTPUT_DIR := bin
 CMD_DIR := cmd/yaml-encrypter-decrypter
 TAG_NAME ?= $(shell head -n 1 .release-version 2>/dev/null || echo "v0.0.0")
-VERSION_RAW ?= $(shell tail -n 1 .release-version 2>/dev/null | sed 's/ /_/g' || echo "dev")
+VERSION_RAW ?= $(shell tail -n 1 .release-version 2>/dev/null || echo "dev")
 VERSION ?= $(VERSION_RAW)
 
 # Ensure the output directory exists
@@ -37,15 +37,15 @@ clean-deps:
 .PHONY: build
 build: $(OUTPUT_DIR)
 	@echo "Building $(BINARY_NAME) with version $(VERSION)..."
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags="-X main.Version=$(VERSION)" -o $(OUTPUT_DIR)/$(BINARY_NAME) $(CMD_DIR)/main.go
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags="-X 'main.Version=$(VERSION)'" -o $(OUTPUT_DIR)/$(BINARY_NAME) $(CMD_DIR)/main.go
 
 # Build binaries for multiple platforms
 .PHONY: build-cross
 build-cross: $(OUTPUT_DIR)
 	@echo "Building cross-platform binaries..."
-	GOOS=linux   GOARCH=amd64   go build -ldflags="-X main.Version=$(VERSION)" -o $(OUTPUT_DIR)/$(BINARY_NAME)-linux-amd64 $(CMD_DIR)/main.go
-	GOOS=darwin  GOARCH=arm64   go build -ldflags="-X main.Version=$(VERSION)" -o $(OUTPUT_DIR)/$(BINARY_NAME)-darwin-arm64 $(CMD_DIR)/main.go
-	GOOS=windows GOARCH=amd64   go build -ldflags="-X main.Version=$(VERSION)" -o $(OUTPUT_DIR)/$(BINARY_NAME)-windows-amd64.exe $(CMD_DIR)/main.go
+	GOOS=linux   GOARCH=amd64   go build -ldflags="-X 'main.Version=$(VERSION)'" -o $(OUTPUT_DIR)/$(BINARY_NAME)-linux-amd64 $(CMD_DIR)/main.go
+	GOOS=darwin  GOARCH=arm64   go build -ldflags="-X 'main.Version=$(VERSION)'" -o $(OUTPUT_DIR)/$(BINARY_NAME)-darwin-arm64 $(CMD_DIR)/main.go
+	GOOS=windows GOARCH=amd64   go build -ldflags="-X 'main.Version=$(VERSION)'" -o $(OUTPUT_DIR)/$(BINARY_NAME)-windows-amd64.exe $(CMD_DIR)/main.go
 	@echo "Cross-platform binaries are available in $(OUTPUT_DIR):"
 	@ls -1 $(OUTPUT_DIR)
 
