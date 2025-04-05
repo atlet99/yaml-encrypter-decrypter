@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added support for `action: none` in rules to explicitly exclude paths from encryption
+- Added priority-based rule processing where `action: none` rules are processed first
+- Added recursive path exclusion for `action: none` rules (all nested paths are also excluded)
+- Added detailed documentation for rule configuration in README.md
+- Added line numbers in diff output for easier identification of changes
 - [YED-001] New processor package with enhanced YAML processing capabilities
 - [YED-002] Extended debug logging functionality
 - [YED-003] New security features in encryption package
@@ -27,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added security scanning workflows with Trivy, Nancy, and OSSF Scorecard
 - Added GitHub Actions workflow for security checks
 - Added security scanning configuration files
+- Added constant `MaskedValue` for sensitive information masking
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -57,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added MinKeyLength constant to replace magic number
 - Updated GitHub Actions workflow configurations
 - Fixed GitHub Actions syntax in security scanning workflows
+- Improved version output format for better readability
+- Version and build number are now displayed on separate lines
+- Enhanced version string parsing in displayVersion function
+- Removed string literal duplication by using constant for masked values
+- Translated all Russian comments to English in processor.go for better code consistency
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
@@ -92,9 +103,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved reproducibility of workflows
 
 ### Fixed
+- Fixed argument order in encryption/decryption function calls to properly handle key and value parameters
 - Fixed base64 string validation with proper padding handling
 - Fixed error handling for invalid operations
 - Fixed tests for encrypted value validation
+- Restored --version flag functionality
+- Fixed version information display
+- Improved version display functionality:
+  - Fixed version string handling in Makefile with proper space escaping in ldflags
+  - Fixed build number extraction from version string
+  - Fixed version output format for better readability
+  - Restored clean version and build number display in CLI output
 
 ### Removed
 - Removed deprecated tests from encryption and processor packages

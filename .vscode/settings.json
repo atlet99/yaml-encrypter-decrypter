@@ -8,5 +8,6 @@
     "explorer.confirmDragAndDrop": false,
     "explorer.confirmPasteNative": false,
     "git.replaceTagsWhenPull": true,
-    "editor.wordWrap": "on"
+    "editor.wordWrap": "on",
+    "ansible.python.interpreterPath": "/opt/homebrew/bin/python3"
 }
