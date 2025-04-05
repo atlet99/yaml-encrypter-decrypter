@@ -173,6 +173,16 @@ export YED_ENCRYPTION_KEY="my-super-secure-key"
 ./bin/yed --file config.yaml --key="my-super-secure-key" --operation encrypt --dry-run --diff
 ```
 
+This will show a preview of changes that would be made to the YAML file, including line numbers for easier identification:
+```
+smart_config.auth.username:
+  [3] - admin
+  [3] + AES256:gt1***A==
+smart_config.auth.password:
+  [4] - SecRet@osd49
+  [4] + AES256:V24***xQ=
+```
+
 **Debug Mode:**
 ```bash
 ./bin/yed --file config.yaml --key="my-super-secure-key" --operation encrypt --debug
@@ -248,10 +258,27 @@ File test.yml updated successfully.
 ./bin/yed --file test.yml --key="my-super-secure-key" --operation encrypt --dry-run --diff
 YAML processing completed in 237.009042ms
 Dry-run mode: The following changes would be applied:
-smart_config.auth.password:
-  - secret123
-  + AES256:BVBBV2l...xxOjYyjGdloHq8bBpg==
 ```
+
+## **Changes in Recent Update**
+
+### **Enhanced Diff Output**
+- Added line numbers to the diff output for easier identification of changes
+- The output format now shows: `[line_number] - old_value` and `[line_number] + new_value`
+
+### **Bug Fixes and Improvements**
+- Fixed argument order in encryption/decryption function calls to properly handle key and value parameters
+- Improved handling of short values that previously couldn't be encrypted due to parameter confusion
+- Reduced cognitive complexity of functions for better maintainability
+- Improved handling of rules with `action: none` to correctly exclude paths from encryption
+- Translated all code comments to English for better international collaboration
+
+### **Configuration Enhancements**
+- Added clearer examples of rule configuration
+- Improved processing of exclusion rules
+- Added detailed documentation for rule parameters
+
+---
 
 ### **License**
 

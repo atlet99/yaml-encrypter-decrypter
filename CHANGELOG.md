@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added priority-based rule processing where `action: none` rules are processed first
 - Added recursive path exclusion for `action: none` rules (all nested paths are also excluded)
 - Added detailed documentation for rule configuration in README.md
+- Added line numbers in diff output for easier identification of changes
 - [YED-001] New processor package with enhanced YAML processing capabilities
 - [YED-002] Extended debug logging functionality
 - [YED-003] New security features in encryption package
@@ -99,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved reproducibility of workflows
 
 ### Fixed
+- Fixed argument order in encryption/decryption function calls to properly handle key and value parameters
 - Fixed base64 string validation with proper padding handling
 - Fixed error handling for invalid operations
 - Fixed tests for encrypted value validation

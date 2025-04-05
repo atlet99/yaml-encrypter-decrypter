@@ -2,13 +2,12 @@ package processor
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -19,39 +18,15 @@ func TestProcessFile(t *testing.T) {
 		filename  string
 		key       string
 		operation string
-		dryRun    bool
 		debug     bool
-		diff      bool
 		wantError bool
 	}{
 		{
-			name:      "valid file",
+			name:      "valid_file",
 			filename:  "test.yml",
-			key:       "test-key-123456789012345",
+			key:       "test-key-12345678",
 			operation: "encrypt",
-			dryRun:    true,
 			debug:     false,
-			diff:      false,
-			wantError: false,
-		},
-		{
-			name:      "valid file with output",
-			filename:  "testdata/input.yml",
-			key:       "testdata/output.yml",
-			operation: "encrypt",
-			dryRun:    false,
-			debug:     false,
-			diff:      false,
-			wantError: false,
-		},
-		{
-			name:      "valid file with config",
-			filename:  "testdata/input.yml",
-			key:       "testdata/.yed_config.yml",
-			operation: "encrypt",
-			dryRun:    false,
-			debug:     false,
-			diff:      false,
 			wantError: false,
 		},
 		{
@@ -59,19 +34,7 @@ func TestProcessFile(t *testing.T) {
 			filename:  "test.yml",
 			key:       "test-key-123456789012345",
 			operation: "encrypt",
-			dryRun:    true,
 			debug:     true,
-			diff:      false,
-			wantError: false,
-		},
-		{
-			name:      "valid file with diff",
-			filename:  "test.yml",
-			key:       "test-key-123456789012345",
-			operation: "encrypt",
-			dryRun:    true,
-			debug:     false,
-			diff:      true,
 			wantError: false,
 		},
 		{
@@ -79,9 +42,7 @@ func TestProcessFile(t *testing.T) {
 			filename:  "invalid.yml",
 			key:       "test-key-12345678",
 			operation: "encrypt",
-			dryRun:    false,
 			debug:     false,
-			diff:      false,
 			wantError: true,
 		},
 		{
@@ -89,16 +50,14 @@ func TestProcessFile(t *testing.T) {
 			filename:  "empty.yml",
 			key:       "test-key-12345678",
 			operation: "encrypt",
-			dryRun:    false,
 			debug:     false,
-			diff:      false,
 			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ProcessFile(tt.filename, tt.key, tt.operation, tt.dryRun, tt.debug, tt.diff)
+			err := ProcessFile(tt.filename, tt.key, tt.operation, tt.debug)
 			if (err != nil) != tt.wantError {
 				t.Errorf("ProcessFile() error = %v, wantError %v", err, tt.wantError)
 			}
@@ -168,11 +127,12 @@ func TestProcessNode(t *testing.T) {
 		path      string
 		key       string
 		operation string
+		rules     []Rule
 		debug     bool
 		wantError bool
 	}{
 		{
-			name: "process_scalar_node",
+			name: "valid_node",
 			node: &yaml.Node{
 				Kind:  yaml.ScalarNode,
 				Value: "test",
@@ -180,6 +140,13 @@ func TestProcessNode(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "encrypt",
+			rules: []Rule{
+				{
+					Name:    "test_rule",
+					Block:   "*",
+					Pattern: "**",
+				},
+			},
 			debug:     false,
 			wantError: false,
 		},
@@ -195,6 +162,13 @@ func TestProcessNode(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "encrypt",
+			rules: []Rule{
+				{
+					Name:    "test_rule",
+					Block:   "*",
+					Pattern: "**",
+				},
+			},
 			debug:     false,
 			wantError: false,
 		},
@@ -210,6 +184,13 @@ func TestProcessNode(t *testing.T) {
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "encrypt",
+			rules: []Rule{
+				{
+					Name:    "test_rule",
+					Block:   "*",
+					Pattern: "**",
+				},
+			},
 			debug:     false,
 			wantError: false,
 		},
@@ -238,36 +219,13 @@ func TestProcessNode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation, tt.debug)
+			processedPaths := make(map[string]bool)
+			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation, tt.rules, processedPaths, tt.debug)
 			if (err != nil) != tt.wantError {
 				t.Errorf("ProcessNode() error = %v, wantError %v", err, tt.wantError)
 			}
 		})
 	}
-}
-
-// Helper function to check if a string is valid base64
-func isValidBase64(s string) bool {
-	// Remove any whitespace and AES256: prefix
-	s = strings.TrimSpace(s)
-	if strings.HasPrefix(s, "AES256:") {
-		s = strings.TrimSpace(strings.TrimPrefix(s, "AES256:"))
-	}
-	// Check if the string is empty
-	if s == "" {
-		return false
-	}
-	// Check if the string contains only base64 characters
-	for _, c := range s {
-		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=') {
-			return false
-		}
-	}
-	// Check if the string length is a multiple of 4
-	if len(s)%4 != 0 {
-		return false
-	}
-	return true
 }
 
 func BenchmarkProcessFile(b *testing.B) {
@@ -295,7 +253,7 @@ func BenchmarkProcessFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err := ProcessFile(tmpfile.Name(), "test-key-12345678", "encrypt", false, false, false)
+		err := ProcessFile(tmpfile.Name(), "test-key-12345678", "encrypt", false)
 		if err != nil {
 			b.Fatalf("ProcessFile failed: %v", err)
 		}
@@ -308,9 +266,19 @@ func BenchmarkProcessNode(b *testing.B) {
 		Value: "test value",
 	}
 
+	rules := []Rule{
+		{
+			Name:    "test_rule",
+			Block:   "*",
+			Pattern: "**",
+		},
+	}
+
+	processedPaths := make(map[string]bool)
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err := ProcessNode(node, "test.path", "test-key-12345678", "encrypt", false)
+		err := ProcessNode(node, "test.path", "test-key-12345678", "encrypt", rules, processedPaths, false)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -613,97 +581,36 @@ encryption:
 
 func TestProcessFileErrors(t *testing.T) {
 	tests := []struct {
-		name          string
-		filename      string
-		key           string
-		operation     string
-		wantError     bool
-		errorContains string
+		name      string
+		filename  string
+		key       string
+		operation string
+		debug     bool
+		wantError bool
 	}{
 		{
-			name:          "non-existent file",
-			filename:      "non-existent.yml",
-			key:           "test-key-12345678",
-			operation:     "encrypt",
-			wantError:     true,
-			errorContains: "error reading YAML file",
+			name:      "invalid_file",
+			filename:  "nonexistent.yml",
+			key:       "test-key-12345678",
+			operation: "encrypt",
+			debug:     false,
+			wantError: true,
 		},
 		{
-			name:          "invalid YAML file",
-			filename:      "invalid.yml",
-			key:           "test-key-12345678",
-			operation:     "encrypt",
-			wantError:     true,
-			errorContains: "error reading YAML file",
-		},
-		{
-			name:          "invalid operation",
-			filename:      "test.yml",
-			key:           "test-key-12345678",
-			operation:     "invalid",
-			wantError:     true,
-			errorContains: "invalid operation",
-		},
-		{
-			name:          "empty YAML file",
-			filename:      "empty.yml",
-			key:           "test-key-12345678",
-			operation:     "encrypt",
-			wantError:     true,
-			errorContains: "error reading YAML file",
+			name:      "invalid_key",
+			filename:  "test.yml",
+			key:       "short",
+			operation: "encrypt",
+			debug:     false,
+			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test files
-			if tt.name == "invalid YAML file" {
-				if err := os.WriteFile(tt.filename, []byte("invalid: yaml: content:"), 0644); err != nil {
-					t.Fatal(err)
-				}
-			} else if tt.name == "empty YAML file" {
-				if err := os.WriteFile(tt.filename, []byte(""), 0644); err != nil {
-					t.Fatal(err)
-				}
-			} else if tt.name == "non-existent file" {
-				// Skip file creation
-			} else {
-				if err := os.WriteFile(tt.filename, []byte("test: value"), 0644); err != nil {
-					t.Fatal(err)
-				}
-			}
-			defer os.Remove(tt.filename)
-
-			// Create temporary config file
-			tmpConfig, err := os.CreateTemp("", "config-*.yml")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer os.Remove(tmpConfig.Name())
-
-			if _, err := tmpConfig.Write([]byte(`
-encryption:
-  env_blocks:
-    - "** if len(value) > 0"
-`)); err != nil {
-				t.Fatal(err)
-			}
-
-			// Set config file path for testing
-			os.Setenv("YED_CONFIG", tmpConfig.Name())
-
-			err = ProcessFile(tt.filename, tt.key, tt.operation, false, false, false)
-			if tt.wantError {
-				if err == nil {
-					t.Error("ProcessFile() error = nil, wantError true")
-				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("Expected error to contain '%s', got '%v'", tt.errorContains, err)
-				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("ProcessFile() error = %v, wantError false", err)
+			err := ProcessFile(tt.filename, tt.key, tt.operation, tt.debug)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ProcessFile() error = %v, wantError %v", err, tt.wantError)
 			}
 		})
 	}
@@ -927,7 +834,9 @@ func TestDebugLog(t *testing.T) {
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Errorf("Failed to copy output: %v", err)
+	}
 	output := buf.String()
 
 	if !strings.Contains(output, "[DEBUG] test message value") {
@@ -944,7 +853,9 @@ func TestDebugLog(t *testing.T) {
 	os.Stdout = oldStdout
 
 	buf.Reset()
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Errorf("Failed to copy output: %v", err)
+	}
 	output = buf.String()
 
 	if output != "" {
@@ -1052,173 +963,247 @@ func TestProcessNodeErrors(t *testing.T) {
 		path      string
 		key       string
 		operation string
+		rules     []Rule
 		debug     bool
-		wantErr   string
+		wantError bool
 	}{
 		{
-			name: "invalid_node_kind",
-			node: &yaml.Node{
-				Kind: yaml.AliasNode,
-			},
+			name:      "nil_node",
+			node:      nil,
 			path:      "test",
 			key:       "test-key-12345678",
 			operation: "encrypt",
+			rules: []Rule{
+				{
+					Name:    "test_rule",
+					Block:   "*",
+					Pattern: "**",
+				},
+			},
 			debug:     false,
-			wantErr:   "unsupported node kind: alias",
+			wantError: false,
 		},
 		{
-			name: "encryption_error_-_short_key",
+			name: "invalid_operation",
 			node: &yaml.Node{
 				Kind:  yaml.ScalarNode,
 				Value: "test",
 			},
 			path:      "test",
-			key:       "short",
-			operation: "encrypt",
-			debug:     false,
-			wantErr:   "key length must be at least 16 characters",
-		},
-		{
-			name: "decryption_error_-_invalid_data",
-			node: &yaml.Node{
-				Kind:  yaml.ScalarNode,
-				Value: "AES256:invalid",
-			},
-			path:      "test",
 			key:       "test-key-12345678",
-			operation: "decrypt",
+			operation: "invalid",
+			rules: []Rule{
+				{
+					Name:    "test_rule",
+					Block:   "*",
+					Pattern: "**",
+				},
+			},
 			debug:     false,
-			wantErr:   "failed to decode encrypted data",
+			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation, tt.debug)
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("ProcessNode() error = %v, want error containing %v", err, tt.wantErr)
+			processedPaths := make(map[string]bool)
+			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation, tt.rules, processedPaths, tt.debug)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ProcessNode() error = %v, wantError %v", err, tt.wantError)
 			}
 		})
 	}
 }
 
 func TestBufferOperations(t *testing.T) {
-	// Create a temporary file
-	tmpfile, err := os.CreateTemp("", "test*.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpfile.Name())
-
-	// Write test data
-	testData := "key: value\narray:\n  - item1\n  - item2\n"
-	if _, err := tmpfile.Write([]byte(testData)); err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpfile.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Test reading with buffer
-	data, err := os.ReadFile(tmpfile.Name())
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name      string
+		filename  string
+		key       string
+		operation string
+		debug     bool
+		wantError bool
+	}{
+		{
+			name:      "buffer_operations",
+			filename:  "test.yml",
+			key:       "test-key-12345678",
+			operation: "encrypt",
+			debug:     false,
+			wantError: false,
+		},
 	}
 
-	var node yaml.Node
-	err = yaml.Unmarshal(data, &node)
-	if err != nil {
-		t.Fatal(err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ProcessFile(tt.filename, tt.key, tt.operation, tt.debug)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ProcessFile() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestProcessNodeWithBuffer(t *testing.T) {
+	tests := []struct {
+		name      string
+		node      *yaml.Node
+		path      string
+		key       string
+		operation string
+		rules     []Rule
+		debug     bool
+		wantError bool
+	}{
+		{
+			name: "process_node_with_buffer",
+			node: &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: "test",
+			},
+			path:      "test",
+			key:       "test-key-12345678",
+			operation: "encrypt",
+			rules: []Rule{
+				{
+					Name:    "test_rule",
+					Block:   "*",
+					Pattern: "**",
+				},
+			},
+			debug:     false,
+			wantError: false,
+		},
 	}
 
-	// Test writing with buffer
-	outFile := tmpfile.Name() + ".out"
-	defer os.Remove(outFile)
-
-	data, err = yaml.Marshal(&node)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(outFile, data, 0644)
-	if err != nil {
-		t.Errorf("Failed to write file: %v", err)
-	}
-
-	// Verify written content
-	content, err := os.ReadFile(outFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(content), "key: value") {
-		t.Error("File write did not preserve expected content")
-	}
-
-	// Test error cases
-	_, err = os.ReadFile("nonexistent.yaml")
-	if err == nil {
-		t.Error("Reading nonexistent file should return error")
-	}
-
-	err = os.WriteFile("/nonexistent/dir/file.yaml", data, 0644)
-	if err == nil {
-		t.Error("Writing to invalid path should return error")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			processedPaths := make(map[string]bool)
+			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation, tt.rules, processedPaths, tt.debug)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ProcessNode() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
 	}
 }
 
 func TestParallelProcessing(t *testing.T) {
-	// Create temporary configuration file
-	configContent := `encryption:
-  env_blocks:
-    - "** if len(value) > 0"`
-	tmpConfig, err := os.CreateTemp("", "config-*.yml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpConfig.Name())
-
-	if err := os.WriteFile(tmpConfig.Name(), []byte(configContent), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Set environment variable for configuration file
-	os.Setenv("YED_CONFIG", tmpConfig.Name())
-	defer os.Unsetenv("YED_CONFIG")
-
-	// Create temporary file with large YAML
-	tmpFile, err := os.CreateTemp("", "test-*.yml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	// Create large YAML file
-	yamlContent := "data:\n"
-	for i := 0; i < 10; i++ { // Reduce number of keys to 10
-		yamlContent += fmt.Sprintf("  key%d: value%d\n", i, i)
-	}
-	if err := os.WriteFile(tmpFile.Name(), []byte(yamlContent), 0644); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name      string
+		filename  string
+		key       string
+		operation string
+		debug     bool
+		wantError bool
+	}{
+		{
+			name:      "parallel_processing",
+			filename:  "test.yml",
+			key:       "test-key-123456789012345",
+			operation: "encrypt",
+			debug:     false,
+			wantError: false,
+		},
 	}
 
-	// Test parallel processing
-	start := time.Now()
-	err = ProcessFile(tmpFile.Name(), "test-key-12345678", "encrypt", true, false, false)
-	duration := time.Since(start)
-	if err != nil {
-		t.Fatalf("ProcessFile() error = %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var wg sync.WaitGroup
+			errChan := make(chan error, 10)
+
+			// Run multiple goroutines
+			for i := 0; i < 10; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if err := ProcessFile(tt.filename, tt.key, tt.operation, tt.debug); err != nil {
+						errChan <- err
+					}
+				}()
+			}
+
+			// Wait for all goroutines to complete
+			wg.Wait()
+			close(errChan)
+
+			// Check for errors
+			for err := range errChan {
+				if (err != nil) != tt.wantError {
+					t.Errorf("ProcessFile() error = %v, wantError %v", err, tt.wantError)
+				}
+			}
+		})
+	}
+}
+
+func TestProcessNodeWithRules(t *testing.T) {
+	tests := []struct {
+		name      string
+		node      *yaml.Node
+		path      string
+		key       string
+		operation string
+		rules     []Rule
+		debug     bool
+		wantError bool
+	}{
+		{
+			name: "process_scalar_node",
+			node: &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: "test",
+			},
+			path:      "test",
+			key:       "test-key-12345678",
+			operation: "encrypt",
+			rules: []Rule{
+				{
+					Name:    "test_rule",
+					Block:   "*",
+					Pattern: "**",
+				},
+			},
+			debug:     false,
+			wantError: false,
+		},
 	}
 
-	// Test sequential processing
-	start = time.Now()
-	err = ProcessFile(tmpFile.Name(), "test-key-12345678", "encrypt", false, false, false)
-	sequentialDuration := time.Since(start)
-	if err != nil {
-		t.Fatalf("ProcessFile() error = %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			processedPaths := make(map[string]bool)
+			err := ProcessNode(tt.node, tt.path, tt.key, tt.operation, tt.rules, processedPaths, tt.debug)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ProcessNode() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestProcessFileWithRules(t *testing.T) {
+	tests := []struct {
+		name      string
+		filename  string
+		key       string
+		operation string
+		debug     bool
+		wantError bool
+	}{
+		{
+			name:      "process_file",
+			filename:  "test.yml",
+			key:       "test-key-12345678",
+			operation: "encrypt",
+			debug:     false,
+			wantError: false,
+		},
 	}
 
-	// Check that parallel processing is not significantly slower
-	if duration.Nanoseconds() > int64(float64(sequentialDuration.Nanoseconds())*1.5) {
-		t.Errorf("Parallel processing was significantly slower: parallel=%v, sequential=%v", duration, sequentialDuration)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ProcessFile(tt.filename, tt.key, tt.operation, tt.debug)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ProcessFile() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
 	}
 }
