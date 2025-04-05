@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added security scanning workflows with Trivy, Nancy, and OSSF Scorecard
 - Added GitHub Actions workflow for security checks
 - Added security scanning configuration files
+- Added constant `MaskedValue` for sensitive information masking
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -65,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved version output format for better readability
 - Version and build number are now displayed on separate lines
 - Enhanced version string parsing in displayVersion function
+- Removed string literal duplication by using constant for masked values
+- Translated all Russian comments to English in processor.go for better code consistency
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions

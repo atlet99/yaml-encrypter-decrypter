@@ -36,6 +36,9 @@ const (
 
 	// File permissions
 	SecureFileMode = 0600 // Secure file permissions (owner read/write only)
+
+	// Masked value for sensitive information
+	MaskedValue = "********"
 )
 
 type Rule struct {
@@ -125,12 +128,10 @@ func maskEncryptedValue(value string, debug bool) string {
 
 	encrypted := strings.TrimPrefix(value, AES)
 
-	// In debug mode we show the full value
-	if debug {
-		return AES + encrypted
-	}
+	// The debug parameter is now only used for logging, not for masking decision
+	debugLog(debug, "Masking encrypted value with length %d", len(encrypted))
 
-	// In other modes we shorten the value
+	// In all modes we shorten the value when masking is requested
 	if len(encrypted) <= MinEncryptedLength {
 		return AES + encrypted
 	}
@@ -382,7 +383,7 @@ func processScalarNode(node *yaml.Node, path string, key, operation string, rule
 			}
 		case OperationDecrypt:
 			if strings.HasPrefix(node.Value, AES) {
-				decrypted, err := encryption.Decrypt(strings.TrimPrefix(node.Value, AES), key)
+				decrypted, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
 				if err != nil {
 					return fmt.Errorf("failed to decrypt value at path %s: %w", path, err)
 				}
@@ -459,7 +460,10 @@ func ShowDiff(filePath, key, operation string, debug bool) error {
 		return fmt.Errorf("error loading rules: %w", err)
 	}
 
-	showDiff(&node, key, operation, config.UnsecureDiff, debug)
+	// Log unsecureDiff value for debugging purposes
+	debugLog(debug, "Loaded unsecureDiff value from config: %v", config.Encryption.UnsecureDiff)
+
+	showDiff(&node, key, operation, config.Encryption.UnsecureDiff, debug)
 	return nil
 }
 
@@ -665,6 +669,9 @@ func showDiff(data *yaml.Node, key, operation string, unsecureDiff bool, debug b
 		return
 	}
 
+	// Setting global variable for masking in logs
+	unsecureDiffLog = unsecureDiff
+
 	debugLog(debug, "Starting showDiff with operation: %s, unsecureDiff: %v", operation, unsecureDiff)
 	debugLog(debug, "Initial data content length: %d", len(data.Content))
 
@@ -726,7 +733,14 @@ func showDiff(data *yaml.Node, key, operation string, unsecureDiff bool, debug b
 
 // processScalarNodeForDiff processes a scalar node for displaying differences
 func processScalarNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool, debug bool) {
-	debugLog(debug, "processNodeForDiff: Processing scalar node with value: '%s'", node.Value)
+	// Mask value for debug output, but keep original value for processing
+	displayValue := node.Value
+	if isSensitiveValue(displayValue) {
+		displayValue = MaskedValue
+	}
+
+	debugLog(debug, "processNodeForDiff: Processing scalar node with value: '%s'", displayValue)
+
 	if !isOriginal {
 		// For encrypted data, apply the operation
 		switch {
@@ -754,6 +768,18 @@ func processScalarNodeForDiff(node *yaml.Node, key, operation string, isOriginal
 	} else {
 		debugLog(debug, "processNodeForDiff: Original data, no operation needed")
 	}
+}
+
+// isSensitiveValue determines if a value is sensitive
+// We consider sensitive all strings that are not AES256 labels and longer than 6 characters
+// If unsecureDiff == true, then we don't consider values as sensitive
+var unsecureDiffLog bool = false // Global variable to store unsecureDiff value
+
+func isSensitiveValue(value string) bool {
+	if unsecureDiffLog {
+		return false // Don't mask anything if unsecureDiffLog is true
+	}
+	return !strings.HasPrefix(value, AES) && len(value) > MinEncryptedLength
 }
 
 // processSequenceNodeForDiff processes a sequence node for displaying differences
@@ -851,9 +877,34 @@ func printScalarDiff(original, processed *yaml.Node, debug bool, unsecureDiff bo
 	if original.Value != processed.Value {
 		originalValue := original.Value
 		processedValue := processed.Value
+		operation := ""
 
-		if !unsecureDiff && strings.HasPrefix(processedValue, AES) {
-			processedValue = maskEncryptedValue(processedValue, debug)
+		// Determine the operation (encryption or decryption)
+		if strings.HasPrefix(processedValue, AES) && !strings.HasPrefix(originalValue, AES) {
+			operation = OperationEncrypt
+		} else if !strings.HasPrefix(processedValue, AES) && strings.HasPrefix(originalValue, AES) {
+			operation = OperationDecrypt
+		}
+
+		// Mask values if unsecureDiff is disabled
+		if !unsecureDiff {
+			if operation == OperationEncrypt {
+				// Mask original value during encryption completely
+				originalValue = MaskedValue
+
+				// Mask encrypted value
+				if strings.HasPrefix(processedValue, AES) {
+					processedValue = maskEncryptedValue(processedValue, debug)
+				}
+			} else if operation == OperationDecrypt {
+				// Mask decrypted value during decryption completely
+				processedValue = MaskedValue
+
+				// Keep encrypted value masked
+				if strings.HasPrefix(originalValue, AES) {
+					originalValue = maskEncryptedValue(originalValue, debug)
+				}
+			}
 		}
 
 		// Display with line numbers
@@ -882,7 +933,7 @@ func processDiff(content []byte, config Config) error {
 
 	// Output differences
 	debugLog(config.Debug, "Printing differences")
-	printDiff(originalData.Content[0], encryptedData.Content[0], config.Debug, config.UnsecureDiff, "")
+	printDiff(originalData.Content[0], encryptedData.Content[0], config.Debug, config.Encryption.UnsecureDiff, "")
 	debugLog(config.Debug, "Finished showDiff")
 
 	return nil
@@ -1015,7 +1066,7 @@ func processScalarNodeWithExclusions(node *yaml.Node, key, operation string, rul
 			}
 		case OperationDecrypt:
 			if strings.HasPrefix(node.Value, AES) {
-				decrypted, err := encryption.Decrypt(strings.TrimPrefix(node.Value, AES), key)
+				decrypted, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
 				if err != nil {
 					return fmt.Errorf("failed to decrypt value at path %s: %w", currentPath, err)
 				}

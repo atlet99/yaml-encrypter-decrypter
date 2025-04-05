@@ -265,6 +265,12 @@ Dry-run mode: The following changes would be applied:
 ### **Enhanced Diff Output**
 - Added line numbers to the diff output for easier identification of changes
 - The output format now shows: `[line_number] - old_value` and `[line_number] + new_value`
+- Added support for masking sensitive information in debug and diff output
+
+### **Security Improvements**
+- Added proper masking of sensitive values in debug output and diff mode
+- Implemented configurable masking via `unsecure_diff` parameter
+- Enhanced protection of encrypted values with only partial display
 
 ### **Bug Fixes and Improvements**
 - Fixed argument order in encryption/decryption function calls to properly handle key and value parameters
@@ -272,11 +278,13 @@ Dry-run mode: The following changes would be applied:
 - Reduced cognitive complexity of functions for better maintainability
 - Improved handling of rules with `action: none` to correctly exclude paths from encryption
 - Translated all code comments to English for better international collaboration
+- Added `MaskedValue` constant to eliminate string literal duplication
 
 ### **Configuration Enhancements**
 - Added clearer examples of rule configuration
 - Improved processing of exclusion rules
 - Added detailed documentation for rule parameters
+- Added `unsecure_diff` parameter to control visibility of sensitive values in diff output
 
 ---
 
