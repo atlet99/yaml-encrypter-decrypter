@@ -24,6 +24,68 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 - Comprehensive test coverage with race detection.
 - Performance benchmarks for encryption/decryption operations.
 
+## **Performance Benchmarks**
+
+The performance of different key derivation algorithms has been extensively benchmarked to help you make an informed choice based on your security and performance requirements.
+
+### **Key Derivation Algorithm Comparison**
+
+| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|-----------|----------------|--------------|---------------|-----------|
+| Argon2id | 60 | 18,363,235 | 9,442,344 | 49 |
+| PBKDF2-SHA256 | 10,000 | 107,746 | 804 | 11 |
+| PBKDF2-SHA512 | 4,830 | 236,775 | 1,380 | 11 |
+
+**Key Insights:**
+- **PBKDF2-SHA256** is approximately **170x faster** than Argon2id
+- **PBKDF2-SHA512** is approximately **78x faster** than Argon2id
+- Both PBKDF2 variants use significantly less memory than Argon2id
+- The PBKDF2 algorithms are tuned with sufficient iterations to maintain security equivalence
+
+### **Argon2 Configurations Comparison**
+
+| Configuration | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|--------------|----------------|--------------|---------------|-----------|
+| OWASP-1-current | 67 | 17,818,289 | 9,442,306 | 48 |
+| OWASP-2 | 70 | 17,125,754 | 7,345,429 | 56 |
+| OWASP-3 | 67 | 17,846,443 | 12,587,776 | 40 |
+| Previous-Config | 8 | 138,691,224 | 268,457,400 | 198 |
+
+**Key Improvements:**
+- The current OWASP-recommended configuration is **~8x faster** than the previous configuration
+- Memory usage has been reduced by **~27x** while maintaining security
+- All OWASP-recommended configurations provide similar performance with different memory/iteration trade-offs
+
+### **Basic Encryption and Decryption Performance**
+
+| Operation | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|-----------|----------------|--------------|---------------|-----------|
+| Encrypt | 66 | 17,791,645 | 10,260,991 | 88 |
+| Decrypt | 67 | 19,369,065 | 9,490,663 | 71 |
+
+### **Encryption with Different Algorithms**
+
+| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|-----------|----------------|--------------|---------------|-----------|
+| argon2id | 61 | 19,897,308 | 10,259,454 | 89 |
+| pbkdf2-sha256 | 6,548 | 191,538 | 817,917 | 51 |
+| pbkdf2-sha512 | 3,604 | 340,094 | 818,493 | 51 |
+
+### **Decryption with Different Algorithms**
+
+| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|-----------|----------------|--------------|---------------|-----------|
+| argon2id | 61 | 20,304,921 | 9,486,333 | 68 |
+| pbkdf2-sha256 | 7,838 | 160,589 | 44,796 | 30 |
+| pbkdf2-sha512 | 3,909 | 313,596 | 45,372 | 30 |
+
+**Note:** These benchmarks were performed on an Apple M3 Pro processor. Performance may vary based on hardware.
+
+You can generate benchmark reports for your own system using:
+```bash
+make benchmark-report
+```
+
 ---
 
 ## **How It Works**

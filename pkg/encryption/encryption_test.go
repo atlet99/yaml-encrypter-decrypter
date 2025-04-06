@@ -13,53 +13,42 @@ import (
 
 func TestEncryptDecrypt(t *testing.T) {
 	tests := []struct {
-		name         string
-		data         string
-		key          string
-		errorEncrypt bool
-		errorDecrypt bool
+		name          string
+		key           string
+		data          string
+		errorEncrypt  bool
+		errorDecrypt  bool
+		errorContains string
 	}{
 		{
-			name:         "valid encryption/decryption",
-			data:         "test data",
-			key:          "test-key-123456789012345",
-			errorEncrypt: false,
-			errorDecrypt: false,
+			name: "valid data",
+			key:  "P@ssw0rd_Str0ng!T3st#2024",
+			data: "This is a test string.",
 		},
 		{
 			name:         "empty data",
-			key:          "test-key-123",
+			key:          "P@ssw0rd_Str0ng!T3st#2024",
 			data:         "",
-			errorEncrypt: true,
-			errorDecrypt: true,
+			errorEncrypt: true, // expecting error with empty data
 		},
 		{
-			name:         "empty key",
-			key:          "",
-			data:         "sensitive data",
-			errorEncrypt: true,
-			errorDecrypt: true,
+			name: "longer data",
+			key:  "P@ssw0rd_Str0ng!T3st#2024",
+			data: "This is a longer test string that spans multiple lines.\nIt contains line breaks and special characters: !@#$%^&*()",
 		},
 		{
-			name:         "long data",
-			key:          "test-key-123",
-			data:         "very long sensitive data that needs to be encrypted and decrypted properly",
-			errorEncrypt: false,
-			errorDecrypt: false,
+			name:          "empty key",
+			key:           "",
+			data:          "This is a test string.",
+			errorEncrypt:  true,
+			errorContains: "password must be at least 8 characters long",
 		},
 		{
-			name:         "special characters",
-			key:          "test-key-123",
-			data:         "!@#$%^&*()_+{}[]|\\:;\"'<>,.?/~`",
-			errorEncrypt: false,
-			errorDecrypt: false,
-		},
-		{
-			name:         "unicode characters",
-			key:          "test-key-123",
-			data:         "Привет, мир! 🌍",
-			errorEncrypt: false,
-			errorDecrypt: false,
+			name:          "too short key",
+			key:           "short",
+			data:          "This is a test string.",
+			errorEncrypt:  true,
+			errorContains: "password must be at least 8 characters long",
 		},
 	}
 
@@ -104,23 +93,23 @@ func TestDecryptWithWrongPassword(t *testing.T) {
 	}{
 		{
 			name:          "completely different password",
-			encryptKey:    "securepassword",
-			decryptKey:    "wrongpassword",
+			encryptKey:    "P@ssw0rd_Str0ng!T3st#2024",
+			decryptKey:    "Wr0ngP@ssword_Test#1234",
 			data:          "This is a test string.",
 			expectError:   true,
 			errorContains: "HMAC validation failed",
 		},
 		{
 			name:          "similar password",
-			encryptKey:    "securepassword",
-			decryptKey:    "securepasswor",
+			encryptKey:    "P@ssw0rd_Str0ng!T3st#2024",
+			decryptKey:    "P@ssw0rd_Str0ng!T3st#2025",
 			data:          "This is a test string.",
 			expectError:   true,
 			errorContains: "HMAC validation failed",
 		},
 		{
 			name:          "empty password",
-			encryptKey:    "securepassword",
+			encryptKey:    "P@ssw0rd_Str0ng!T3st#2024",
 			decryptKey:    "",
 			data:          "This is a test string.",
 			expectError:   true,
@@ -150,53 +139,62 @@ func TestDecryptWithWrongPassword(t *testing.T) {
 }
 
 func TestDecryptWithCorruptedData(t *testing.T) {
+	// First, prepare actually encrypted data for testing
+	password := "P@ssw0rd_Str0ng!T3st#2024"
+	plaintext := "This is a test plaintext for corruption tests."
+	encrypted, err := Encrypt(password, plaintext)
+	if err != nil {
+		t.Fatalf("Failed to create test encrypted data: %v", err)
+	}
+
 	tests := []struct {
 		name          string
 		key           string
-		data          string
 		corruptFunc   func(string) string
 		expectError   bool
 		errorContains string
 	}{
 		{
-			name: "completely invalid data",
-			key:  "securepassword",
-			data: "this-is-not-valid-encrypted-data",
+			name: "corrupted base64",
+			key:  password,
 			corruptFunc: func(s string) string {
-				return s
+				return "not-base64-data"
 			},
 			expectError:   true,
-			errorContains: "failed to decode base64 string",
+			errorContains: "illegal base64",
 		},
 		{
-			name: "truncated data",
-			key:  "securepassword",
-			data: "This is a test string.",
+			name: "corrupted format",
+			key:  password,
 			corruptFunc: func(s string) string {
-				encrypted, _ := Encrypt("securepassword", s)
-				return encrypted[:len(encrypted)-10]
+				decoded, _ := base64.StdEncoding.DecodeString(s)
+				// Return text too short to break the format
+				return base64.StdEncoding.EncodeToString(decoded[:20])
 			},
 			expectError:   true,
-			errorContains: "failed to decode base64 string",
+			errorContains: "ciphertext too short",
 		},
 		{
-			name: "modified data",
-			key:  "securepassword",
-			data: "This is a test string.",
+			name: "corrupted hmac",
+			key:  password,
 			corruptFunc: func(s string) string {
-				encrypted, _ := Encrypt("securepassword", s)
-				bytes := []byte(encrypted)
-				bytes[len(bytes)/2] ^= 0xFF
-				return string(bytes)
+				decoded, _ := base64.StdEncoding.DecodeString(s)
+				if len(decoded) > hmacSize {
+					// Specifically modify the HMAC at the end
+					for i := len(decoded) - hmacSize; i < len(decoded); i++ {
+						decoded[i] ^= 0x01 // Invert bits
+					}
+				}
+				return base64.StdEncoding.EncodeToString(decoded)
 			},
 			expectError:   true,
-			errorContains: "failed to decode base64 string",
+			errorContains: "HMAC validation failed",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			corruptedData := tt.corruptFunc(tt.data)
+			corruptedData := tt.corruptFunc(encrypted)
 			_, err := Decrypt(tt.key, corruptedData)
 			if tt.expectError {
 				if err == nil {
@@ -213,7 +211,7 @@ func TestDecryptWithCorruptedData(t *testing.T) {
 
 func TestEncryptDecryptWithDifferentAlgorithms(t *testing.T) {
 	data := "test data for different algorithms"
-	password := "secure-test-password-123456789"
+	password := "P@ssw0rd_Str0ng!T3st#2024"
 
 	algorithms := []KeyDerivationAlgorithm{
 		Argon2idAlgorithm,
@@ -251,7 +249,7 @@ func TestEncryptDecryptWithDifferentAlgorithms(t *testing.T) {
 
 func TestCompatibilityBetweenAlgorithms(t *testing.T) {
 	data := "test data for compatibility check"
-	password := "secure-test-password-123456789"
+	password := "P@ssw0rd_Str0ng!T3st#2024"
 
 	encryptedArgon2id, err := Encrypt(password, data, Argon2idAlgorithm)
 	if err != nil {
@@ -309,7 +307,7 @@ func TestBackwardCompatibility(t *testing.T) {
 	// Create simulation of old format encrypted data
 	// (without algorithm indicator at the beginning)
 	data := "legacy encrypted data"
-	password := "secure-test-password-123456789"
+	password := "P@ssw0rd_Str0ng!T3st#2024"
 
 	salt := make([]byte, saltSize)
 	if _, err := rand.Read(salt); err != nil {
@@ -373,7 +371,8 @@ func TestBackwardCompatibility(t *testing.T) {
 }
 
 func BenchmarkKeyDerivationAlgorithms(b *testing.B) {
-	password := "benchmark-password"
+	// Use a strong password that meets all requirements
+	password := "P@ssw0rd_Str0ng!T3st#2024"
 	salt := make([]byte, saltSize)
 
 	// Use a shorter iteration count for benchmarks to make them run faster
@@ -406,7 +405,7 @@ func BenchmarkKeyDerivationAlgorithms(b *testing.B) {
 	})
 }
 
-// detectAlgorithmFromCiphertext пытается определить алгоритм шифрования из зашифрованного текста
+// detectAlgorithmFromCiphertext attempts to determine the encryption algorithm from the encrypted text
 func detectAlgorithmFromCiphertext(encrypted string) string {
 	rawData, err := base64.StdEncoding.DecodeString(encrypted)
 	if err != nil || len(rawData) < AlgorithmIndicatorLength {

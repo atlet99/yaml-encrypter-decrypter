@@ -40,6 +40,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved password strength assessment with categorization (Low/Medium/High)
   - Added password improvement suggestions for weak passwords
   - Maintained backward compatibility while enhancing security
+- Added specialized benchmark targets to Makefile:
+  - `benchmark` - Basic benchmarks for the encryption package
+  - `benchmark-long` - Longer duration benchmarks (5s per test)
+  - `benchmark-encryption` - Benchmarks for encryption/decryption operations
+  - `benchmark-algorithms` - Benchmarks for key derivation algorithms
+  - `benchmark-argon2` - Benchmarks for different Argon2 configurations
+  - `benchmark-report` - Generate comprehensive markdown benchmark report
+- Enhanced benchmarking suite:
+  - Added dedicated tests for comparing encryption/decryption performance across algorithms
+  - Added separate benchmarks for PBKDF2-SHA256 and PBKDF2-SHA512
+  - Updated all benchmark tests to use strong passwords meeting OWASP guidelines
+  - Added more granular algorithm-specific benchmarks
+- Improved benchmark-report output:
+  - Formatted results as proper Markdown tables
+  - Added better formatting of algorithm names with proper hyphenation
+  - Enhanced readability by standardizing units and column alignment
+  - Improved table layout for better documentation and README inclusion
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -79,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed string literal duplication by using constant for masked values
 - Translated all Russian comments to English in processor.go for better code consistency
 - Refactored mainWithExitCode function into smaller, more focused functions to reduce cognitive complexity and improve maintainability
+- Added detailed performance benchmarks section to README.md with comprehensive comparison of key derivation algorithms
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
@@ -131,6 +149,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed build number extraction from version string
   - Fixed version output format for better readability
   - Restored clean version and build number display in CLI output
+- Fixed formatting issues in benchmark reports:
+  - Corrected table structure for proper rendering in Markdown
+  - Fixed alignment of content in report columns
+  - Improved algorithm name formatting in reports
 
 ### Removed
 - Removed deprecated tests from encryption and processor packages
@@ -151,6 +173,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved detection and reporting of encryption algorithm from ciphertext
   - Removed timestamp prefix from encryption key environment variable message for consistent output formatting
 - Enhanced memory security with proper buffer handling and explicit destruction
+- Improved benchmark reporting:
+  - Created professional formatting for benchmark tables
+  - Enhanced readability of benchmark results in Markdown
+  - Added clear separation between different benchmark categories
+  - Added standardized table headers
+  - Made benchmark output directly usable in documentation
 
 ## [0.1.0] - 2024-03-20
 
