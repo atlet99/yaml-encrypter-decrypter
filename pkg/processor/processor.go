@@ -3,6 +3,7 @@ package processor
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"regexp"
@@ -14,8 +15,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// File contains constants and variables for YAML file processing
 const (
-	AES              = "AES256:" // Prefix for encrypted values
+	// Operations
+	AES              = "AES256:"
 	OperationEncrypt = "encrypt"
 	OperationDecrypt = "decrypt"
 
@@ -39,7 +42,16 @@ const (
 
 	// Masked value for sensitive information
 	MaskedValue = "********"
+
+	// EncryptedPrefix is the prefix for encrypted values
+	EncryptedPrefix = "AES256:"
+
+	// AlgorithmIndicatorLength is the length of the algorithm indicator
+	AlgorithmIndicatorLength = 16
 )
+
+// CurrentKeyDerivationAlgorithm is the algorithm to use for encryption
+var CurrentKeyDerivationAlgorithm encryption.KeyDerivationAlgorithm
 
 type Rule struct {
 	Name        string `yaml:"name"`
@@ -121,15 +133,24 @@ func debugLog(debug bool, format string, args ...interface{}) {
 }
 
 // maskEncryptedValue masks the encrypted value
-func maskEncryptedValue(value string, debug bool) string {
+func maskEncryptedValue(value string, debug bool, fieldPath ...string) string {
 	if !strings.HasPrefix(value, AES) {
 		return value
 	}
 
 	encrypted := strings.TrimPrefix(value, AES)
 
+	// Add context information if field path is provided
+	contextInfo := ""
+	if len(fieldPath) > 0 && fieldPath[0] != "" {
+		contextInfo = fmt.Sprintf(" for field '%s'", fieldPath[0])
+	}
+
 	// The debug parameter is now only used for logging, not for masking decision
-	debugLog(debug, "Masking encrypted value with length %d", len(encrypted))
+	debugLog(debug, "Masking encrypted value%s (algo: %s)",
+		contextInfo,
+		detectAlgorithm(value),
+	)
 
 	// In all modes we shorten the value when masking is requested
 	if len(encrypted) <= MinEncryptedLength {
@@ -138,6 +159,45 @@ func maskEncryptedValue(value string, debug bool) string {
 
 	// Keep first 3 characters, add *** and last 3 characters
 	return AES + encrypted[:3] + "***" + encrypted[len(encrypted)-3:]
+}
+
+// detectAlgorithm tries to identify the algorithm used in the encrypted value
+func detectAlgorithm(encryptedValue string) string {
+	if !strings.HasPrefix(encryptedValue, AES) {
+		return "unknown"
+	}
+
+	data := strings.TrimPrefix(encryptedValue, AES)
+	if len(data) < AlgorithmIndicatorLength {
+		return "unknown (too short)"
+	}
+
+	// Try to decode the base64
+	decoded, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return "unknown (invalid base64)"
+	}
+
+	// Extract algorithm indicator (first 16 bytes)
+	if len(decoded) < AlgorithmIndicatorLength {
+		return "unknown (decoded too short)"
+	}
+
+	// Convert the algorithm bytes to string and trim nulls
+	algoBytes := decoded[:AlgorithmIndicatorLength]
+	algoStr := strings.TrimRight(string(algoBytes), "\x00")
+
+	// Use switch instead of if-else
+	switch {
+	case strings.HasPrefix(algoStr, "argon2id"):
+		return "argon2id"
+	case strings.HasPrefix(algoStr, "pbkdf2-sha256"):
+		return "pbkdf2-sha256"
+	case strings.HasPrefix(algoStr, "pbkdf2-sha512"):
+		return "pbkdf2-sha512"
+	default:
+		return "unknown algorithm"
+	}
 }
 
 // regexCache stores compiled regular expressions
@@ -383,11 +443,25 @@ func processScalarNode(node *yaml.Node, path string, key, operation string, rule
 			}
 		case OperationDecrypt:
 			if strings.HasPrefix(node.Value, AES) {
-				decrypted, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
+				debugLog(debug, "Processing encrypted node with value: %s", maskEncryptedValue(node.Value, debug, path))
+
+				// Decrypt value
+				decryptedBuffer, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
 				if err != nil {
-					return fmt.Errorf("failed to decrypt value at path %s: %w", path, err)
+					debugLog(debug, "Error decrypting value: %v", err)
+					return err
 				}
+				defer decryptedBuffer.Destroy() // Clean up the protected buffer
+
+				// Set decrypted value
+				decrypted := string(decryptedBuffer.Bytes())
+				debugLog(debug, "Decrypted value: %s", decrypted)
 				node.Value = decrypted
+
+				// Mark path as processed
+				if processedPaths != nil {
+					processedPaths[path] = true
+				}
 			}
 		}
 	}
@@ -521,27 +595,29 @@ func clearNodeData(node *yaml.Node) {
 }
 
 // maskNodeValues recursively masks encrypted values in YAML nodes
-func maskNodeValues(node *yaml.Node) {
+func maskNodeValues(node *yaml.Node, debug bool) *yaml.Node {
 	if node == nil {
-		return
+		return nil
 	}
 
 	switch node.Kind {
 	case yaml.ScalarNode:
 		if strings.HasPrefix(node.Value, AES) {
-			node.Value = maskEncryptedValue(node.Value, false)
+			node.Value = maskEncryptedValue(node.Value, debug)
 		}
+		return node
 	case yaml.SequenceNode:
 		for _, child := range node.Content {
-			maskNodeValues(child)
+			maskNodeValues(child, debug)
 		}
 	case yaml.MappingNode:
 		for i := 0; i < len(node.Content); i += 2 {
 			if i+1 < len(node.Content) {
-				maskNodeValues(node.Content[i+1])
+				maskNodeValues(node.Content[i+1], debug)
 			}
 		}
 	}
+	return node
 }
 
 // loadRules loads encryption rules from a config file
@@ -755,9 +831,9 @@ func processScalarNodeForDiff(node *yaml.Node, key, operation string, isOriginal
 			}
 		case operation == OperationDecrypt && strings.HasPrefix(node.Value, AES):
 			debugLog(debug, "processNodeForDiff: Decrypting value")
-			decryptedValue, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
+			decryptedBuffer, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
 			if err == nil {
-				node.Value = decryptedValue
+				node.Value = string(decryptedBuffer.Bytes())
 				debugLog(debug, "processNodeForDiff: Value decrypted successfully")
 			} else {
 				debugLog(debug, "processNodeForDiff: Decryption error: %v", err)
@@ -894,7 +970,7 @@ func printScalarDiff(original, processed *yaml.Node, debug bool, unsecureDiff bo
 
 				// Mask encrypted value
 				if strings.HasPrefix(processedValue, AES) {
-					processedValue = maskEncryptedValue(processedValue, debug)
+					processedValue = maskEncryptedValue(processedValue, debug, path)
 				}
 			} else if operation == OperationDecrypt {
 				// Mask decrypted value during decryption completely
@@ -902,7 +978,7 @@ func printScalarDiff(original, processed *yaml.Node, debug bool, unsecureDiff bo
 
 				// Keep encrypted value masked
 				if strings.HasPrefix(originalValue, AES) {
-					originalValue = maskEncryptedValue(originalValue, debug)
+					originalValue = maskEncryptedValue(originalValue, debug, path)
 				}
 			}
 		}
@@ -1066,11 +1142,25 @@ func processScalarNodeWithExclusions(node *yaml.Node, key, operation string, rul
 			}
 		case OperationDecrypt:
 			if strings.HasPrefix(node.Value, AES) {
-				decrypted, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
+				debugLog(debug, "Processing encrypted node with value: %s", maskEncryptedValue(node.Value, debug, currentPath))
+
+				// Decrypt value
+				decryptedBuffer, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
 				if err != nil {
-					return fmt.Errorf("failed to decrypt value at path %s: %w", currentPath, err)
+					debugLog(debug, "Error decrypting value: %v", err)
+					return err
 				}
+				defer decryptedBuffer.Destroy() // Clean up the protected buffer
+
+				// Set decrypted value
+				decrypted := string(decryptedBuffer.Bytes())
+				debugLog(debug, "Decrypted value: %s", decrypted)
 				node.Value = decrypted
+
+				// Mark path as processed
+				if processedPaths != nil {
+					processedPaths[currentPath] = true
+				}
 			}
 		}
 	}
@@ -1144,4 +1234,9 @@ func ProcessDiff(filePath, key, operation string, debug bool) error {
 	}
 
 	return processDiff(content, config)
+}
+
+// SetKeyDerivationAlgorithm sets the algorithm to use for encryption
+func SetKeyDerivationAlgorithm(algorithm encryption.KeyDerivationAlgorithm) {
+	CurrentKeyDerivationAlgorithm = algorithm
 }

@@ -10,15 +10,81 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 
 ## **Features**
 - AES-256 GCM encryption for data confidentiality and integrity.
-- Argon2 for secure password-based key derivation.
+- Multiple key derivation algorithms:
+  - Argon2id (default) with OWASP recommended parameters
+  - PBKDF2-SHA256 (NIST/FIPS compatible) with 600,000 iterations
+  - PBKDF2-SHA512 (NIST/FIPS compatible) with 210,000 iterations
+- Secure memory handling with memguard to protect sensitive data in memory.
 - HMAC for validating data integrity.
 - Compression using gzip to optimize data storage.
 - Supports cross-platform builds (Linux, macOS, Windows).
 - Comprehensive Makefile for building, testing, and running the project.
 - Enhanced validation of encrypted data and base64 strings.
-- Improved error handling and debug logging.
+- Improved error handling and enhanced debug logging.
 - Comprehensive test coverage with race detection.
 - Performance benchmarks for encryption/decryption operations.
+
+## **Performance Benchmarks**
+
+The performance of different key derivation algorithms has been extensively benchmarked to help you make an informed choice based on your security and performance requirements.
+
+### **Key Derivation Algorithm Comparison**
+
+| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|-----------|----------------|--------------|---------------|-----------|
+| Argon2id | 60 | 18,363,235 | 9,442,344 | 49 |
+| PBKDF2-SHA256 | 10,000 | 107,746 | 804 | 11 |
+| PBKDF2-SHA512 | 4,830 | 236,775 | 1,380 | 11 |
+
+**Key Insights:**
+- **PBKDF2-SHA256** is approximately **170x faster** than Argon2id
+- **PBKDF2-SHA512** is approximately **78x faster** than Argon2id
+- Both PBKDF2 variants use significantly less memory than Argon2id
+- The PBKDF2 algorithms are tuned with sufficient iterations to maintain security equivalence
+
+### **Argon2 Configurations Comparison**
+
+| Configuration | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|--------------|----------------|--------------|---------------|-----------|
+| OWASP-1-current | 67 | 17,818,289 | 9,442,306 | 48 |
+| OWASP-2 | 70 | 17,125,754 | 7,345,429 | 56 |
+| OWASP-3 | 67 | 17,846,443 | 12,587,776 | 40 |
+| Previous-Config | 8 | 138,691,224 | 268,457,400 | 198 |
+
+**Key Improvements:**
+- The current OWASP-recommended configuration is **~8x faster** than the previous configuration
+- Memory usage has been reduced by **~27x** while maintaining security
+- All OWASP-recommended configurations provide similar performance with different memory/iteration trade-offs
+
+### **Basic Encryption and Decryption Performance**
+
+| Operation | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|-----------|----------------|--------------|---------------|-----------|
+| Encrypt | 66 | 17,791,645 | 10,260,991 | 88 |
+| Decrypt | 67 | 19,369,065 | 9,490,663 | 71 |
+
+### **Encryption with Different Algorithms**
+
+| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|-----------|----------------|--------------|---------------|-----------|
+| argon2id | 61 | 19,897,308 | 10,259,454 | 89 |
+| pbkdf2-sha256 | 6,548 | 191,538 | 817,917 | 51 |
+| pbkdf2-sha512 | 3,604 | 340,094 | 818,493 | 51 |
+
+### **Decryption with Different Algorithms**
+
+| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+|-----------|----------------|--------------|---------------|-----------|
+| argon2id | 61 | 20,304,921 | 9,486,333 | 68 |
+| pbkdf2-sha256 | 7,838 | 160,589 | 44,796 | 30 |
+| pbkdf2-sha512 | 3,909 | 313,596 | 45,372 | 30 |
+
+**Note:** These benchmarks were performed on an Apple M3 Pro processor. Performance may vary based on hardware.
+
+You can generate benchmark reports for your own system using:
+```bash
+make benchmark-report
+```
 
 ---
 
@@ -27,13 +93,60 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 ### **Encryption**
 1. The provided plaintext is compressed using `gzip` to reduce size.
 2. A random **salt** is generated (32 bytes) to ensure unique encryption even with the same password.
-3. The password is converted to a cryptographic key using **Argon2** key derivation with enhanced parameters:
-   - **Memory**: 256 MB
-   - **Iterations**: 4
-   - **Threads**: 8
+3. The password is converted to a cryptographic key using one of the following key derivation functions:
+   - **Argon2id** (default, OWASP recommended parameters):
+     - **Memory**: 9 MB (9216 KiB)
+     - **Iterations**: 4
+     - **Threads**: 1
+   - **PBKDF2-SHA256** (optional, NIST/FIPS compatible):
+     - **Iterations**: 600,000
+   - **PBKDF2-SHA512** (optional, NIST/FIPS compatible):
+     - **Iterations**: 210,000
 4. The plaintext is encrypted using **AES-256 GCM** (128-bit nonce, 256-bit key) for confidentiality and integrity.
 5. An **HMAC** is computed to validate the integrity of the encrypted data.
 6. The final result combines the salt, nonce, encrypted data, and HMAC.
+
+### **Secure Memory Handling**
+The tool implements robust memory security measures to protect sensitive data:
+
+1. **Secure Memory Buffers**: Uses memguard to create protected memory enclaves for sensitive data.
+2. **Memory Protection**: Memory containing sensitive data is protected from swapping to disk.
+3. **Automatic Cleanup**: All sensitive buffers are automatically destroyed after use.
+4. **Signal Handling**: Properly handles interruption signals to ensure sensitive data is wiped from memory.
+5. **Buffer Lifecycle**: Explicit buffer lifecycle management with destroy calls to prevent memory leaks.
+6. **Sensitive Data Protection**: Prevents sensitive data from being exposed in logs or error messages.
+7. **Strong Password Requirements**: Enforces a minimum key length of 16 characters for both command-line and environment variable provided keys.
+
+### **Key Derivation Algorithms**
+Choose from multiple key derivation algorithms with the `--algorithm` flag:
+```bash
+./bin/yed --file config.yaml --key="my-secure-key" --operation encrypt --algorithm argon2id
+```
+
+Available algorithms:
+- `argon2id` (default): Memory-hard algorithm with OWASP recommended parameters
+- `pbkdf2-sha256`: NIST/FIPS compatible with 600,000 iterations
+- `pbkdf2-sha512`: NIST/FIPS compatible with 210,000 iterations (provides best balance of security and performance)
+
+### **Debug Mode Improvements**
+The enhanced debug mode provides detailed insights into the encryption/decryption process:
+
+```bash
+./bin/yed --file config.yaml --key="my-secure-key" --operation encrypt --debug
+```
+
+Debug output now includes:
+- Algorithm detection for each encrypted value
+- Field path information for better context
+- Length of encrypted data
+- Enhanced masking of sensitive values
+
+Example debug output:
+```
+[DEBUG] Masking encrypted value for field 'smart_config.auth.username' (length: 184, algo: argon2id)
+```
+
+This helps in troubleshooting and understanding the encryption process without compromising security.
 
 ### **Decryption**
 1. The encrypted data is decoded and split into its components: salt, nonce, ciphertext, and HMAC.
@@ -145,7 +258,11 @@ Override the encryption key with `YED_ENCRYPTION_KEY`:
 ```bash
 export YED_ENCRYPTION_KEY="my-super-secure-key"
 ```
-**(!) At least 16 characters for passphrase.**
+**Password Requirements:**
+- **Minimum**: 8 characters
+- **Maximum**: 64 characters (supports passphrases)
+- **Recommendation**: Use a mix of uppercase, lowercase, numbers, and special characters
+- **Avoid**: Common passwords will be rejected for security
 
 ### **Command-Line Interface**
 
@@ -228,9 +345,10 @@ make build-cross
 1. **AES-256 GCM:**
    * Authenticated encryption for data confidentiality and integrity.
    * Ensures encrypted data cannot be tampered with.
-2. **Argon2:**
-   * Secure password-based key derivation.
-   * Memory-hard to resist brute-force attacks.
+2. **Argon2id:**
+   * Secure password-based key derivation, winner of the 2015 Password Hashing Competition.
+   * Configured according to OWASP recommendations for optimal security-performance balance.
+   * Memory-hard to resist brute-force attacks, especially GPU-based ones.
 3. **HMAC-SHA256:**
    * Validates integrity of encrypted data.
 4. **Gzip Compression:**
@@ -260,17 +378,56 @@ YAML processing completed in 237.009042ms
 Dry-run mode: The following changes would be applied:
 ```
 
-## **Changes in Recent Update**
+## **Recent Updates**
+
+### **Algorithm Flexibility**
+- Added support for multiple key derivation algorithms:
+  - **Argon2id**: Default algorithm recommended by OWASP
+  - **PBKDF2-SHA256**: Added for NIST/FIPS compatibility (600,000 iterations)
+  - **PBKDF2-SHA512**: Added for NIST/FIPS compatibility (210,000 iterations)
+- Performance comparison:
+  - PBKDF2-SHA256 is ~180x faster than Argon2id with comparable security
+  - PBKDF2-SHA512 is ~80x faster than Argon2id with comparable security
+- Algorithm is auto-detected during decryption
+- Maintains backward compatibility with previously encrypted data
+- Algorithm can be specified via command-line argument
+- Added `SetKeyDerivationAlgorithm` function to the processor package for flexible algorithm selection
+
+### **Password Security Enhancements**
+- Implemented robust password strength validation according to OWASP:
+  - Support for passwords up to 64 characters to allow passphrases
+  - Detection and prevention of common/compromised passwords
+  - Password strength assessment (Low/Medium/High)
+  - Intelligent suggestions for password improvement
+  - Character diversity checks (uppercase, lowercase, digits, symbols)
+  - No arbitrary rules limiting character types
+
+### **Performance Optimizations**
+- Optimized Argon2id parameters according to OWASP recommendations:
+  - Memory reduced from 256 MB to 9 MB (9216 KiB)
+  - Thread count reduced from 8 to 1 while maintaining 4 iterations
+  - Key derivation is ~8x faster (reduced from ~136ms to ~17ms)
+  - Memory usage reduced by 27x (from ~268 MB to ~10 MB)
+  - Maintains the same security level with significantly reduced resource consumption
+  - Improved performance on resource-constrained devices
+  - Reduced risk of memory-based DoS attacks
+
+### **Build System Improvements**
+- Fixed Makefile for proper compilation of all source files:
+  - Updated build targets to correctly include all source files
+  - Changed build commands to target directories instead of individual files
+  - Added proper path prefixes to ensure correct Go module resolution
+  - Ensured consistent building across all platforms
 
 ### **Enhanced Diff Output**
-- Added line numbers to the diff output for easier identification of changes
-- The output format now shows: `[line_number] - old_value` and `[line_number] + new_value`
-- Added support for masking sensitive information in debug and diff output
+- Added line numbers to diff output for easier change identification
+- Output format now shows: `[line_number] - old_value` and `[line_number] + new_value`
+- Added support for masking sensitive information in debug output and diff mode
 
 ### **Security Improvements**
 - Added proper masking of sensitive values in debug output and diff mode
 - Implemented configurable masking via `unsecure_diff` parameter
-- Enhanced protection of encrypted values with only partial display
+- Enhanced protection of encrypted values with partial display
 
 ### **Bug Fixes and Improvements**
 - Fixed argument order in encryption/decryption function calls to properly handle key and value parameters
@@ -291,3 +448,17 @@ Dry-run mode: The following changes would be applied:
 ### **License**
 
 This is an open source project under the [MIT](https://github.com/atlet99/yaml-encrypter-decrypter/blob/main/LICENSE) license.
+
+### **Environment Variables**
+
+You can override command-line flags using environment variables:
+
+```bash
+# Set encryption key (must be at least 16 characters long)
+export YED_ENCRYPTION_KEY="my-super-secure-key"
+
+# Then run without specifying key on command line
+./bin/yed --file config.yaml --operation encrypt
+```
+
+The environment variable approach provides an alternative to passing sensitive data on the command line, which might be visible in process listings.

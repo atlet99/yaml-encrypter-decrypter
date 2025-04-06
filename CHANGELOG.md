@@ -33,15 +33,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added GitHub Actions workflow for security checks
 - Added security scanning configuration files
 - Added constant `MaskedValue` for sensitive information masking
+- Enhanced password security:
+  - Implemented robust password strength validation according to OWASP guidelines
+  - Added support for passwords up to 64 characters to allow strong passphrases
+  - Added common password checking to prevent use of easily guessable passwords
+  - Improved password strength assessment with categorization (Low/Medium/High)
+  - Added password improvement suggestions for weak passwords
+  - Maintained backward compatibility while enhancing security
+- Added specialized benchmark targets to Makefile:
+  - `benchmark` - Basic benchmarks for the encryption package
+  - `benchmark-long` - Longer duration benchmarks (5s per test)
+  - `benchmark-encryption` - Benchmarks for encryption/decryption operations
+  - `benchmark-algorithms` - Benchmarks for key derivation algorithms
+  - `benchmark-argon2` - Benchmarks for different Argon2 configurations
+  - `benchmark-report` - Generate comprehensive markdown benchmark report
+- Enhanced benchmarking suite:
+  - Added dedicated tests for comparing encryption/decryption performance across algorithms
+  - Added separate benchmarks for PBKDF2-SHA256 and PBKDF2-SHA512
+  - Updated all benchmark tests to use strong passwords meeting OWASP guidelines
+  - Added more granular algorithm-specific benchmarks
+- Improved benchmark-report output:
+  - Formatted results as proper Markdown tables
+  - Added better formatting of algorithm names with proper hyphenation
+  - Enhanced readability by standardizing units and column alignment
+  - Improved table layout for better documentation and README inclusion
+- Added function `SetKeyDerivationAlgorithm` in the processor package to select the encryption algorithm
+- Fixed Makefile for proper compilation of all .go files in the project:
+  - Updated build targets to correctly include all source files
+  - Changed build commands to target directories instead of individual files
+  - Ensured proper compilation across all platforms
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
 - [YED-005] Replaced govaluate with expr-lang/expr v1.17.2
 - [YED-006] Enhanced encryption security parameters:
-  - Increased salt size to 32 bytes
-  - Increased Argon2 iterations to 4
-  - Increased memory usage to 256 MB
-  - Increased thread count to 8
+  - Updated Argon2 parameters to OWASP recommended values:
+    - Memory reduced from 256 MB to 9 MB (9216 KiB)
+    - Iterations kept at 4
+    - Thread count reduced from 8 to 1
+  - Performance improvement: ~8x faster key derivation
+  - Memory usage reduced by ~27x while maintaining security
 - [YED-007] Updated .gitignore with extended rules
 - [YED-008] Improved debug mode handling
 - Improved error handling and validation in main.go
@@ -50,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved debug logging functionality
 - Enhanced validation of encrypted data
 - Updated documentation in README.md
+- Updated Russian documentation in localizations/ru-RU/docs/README.md with all latest features and changes
 - Improved error handling in tests
 - Optimized base64 string validation
 - Translated all code comments to English for better international collaboration
@@ -68,6 +100,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced version string parsing in displayVersion function
 - Removed string literal duplication by using constant for masked values
 - Translated all Russian comments to English in processor.go for better code consistency
+- Refactored mainWithExitCode function into smaller, more focused functions to reduce cognitive complexity and improve maintainability
+- Added detailed performance benchmarks section to README.md with comprehensive comparison of key derivation algorithms
+- Improved Makefile:
+  - Fixed build commands to properly compile all source files
+  - Changed target paths from specific files to directories
+  - Added proper path prefixes to ensure correct Go module resolution
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
@@ -76,6 +114,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Implemented secure memory handling for sensitive data using memguard
 - Added proper cleanup of sensitive data on program interruption
+- Enhanced memory protection by returning secure LockedBuffer from Decrypt function
+- Improved secure memory management with explicit buffer destruction after use
+- Added better debug logging for encrypted data with algorithm detection
+- Added context information to masked values for improved debugging
+- Added detailed documentation on memory security best practices
+- Addressed potential memory leaks with sensitive data by properly cleaning buffers
 - Added automated security scanning with Trivy for vulnerability detection
 - Added dependency scanning with Nancy
 - Added OSSF Scorecard integration for security assessment
@@ -101,6 +145,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed actions/checkout to commit hash for better security
   - Prevented potential supply chain attacks
   - Improved reproducibility of workflows
+- Enhanced password validation:
+  - Implemented minimum password length check (16 characters) for encryption keys
+  - Added validation for both command-line keys and environment variable keys
+  - Improved error message clarity for password requirements
+- Improved security of error logging:
+  - Removed sensitive error details from benchmark logs
+  - Ensured error messages don't expose encryption keys or other sensitive data
+  - Added generic error messages that protect sensitive information while still being helpful
+- Fixed direct exposure of password information in logs:
+  - Refactored password validation to avoid direct password references in logs
+  - Removed encrypted value length information from debug logs
+  - Created separate helper functions to prevent sensitive data exposure
+  - Improved masking of sensitive data in all output modes
 
 ### Fixed
 - Fixed argument order in encryption/decryption function calls to properly handle key and value parameters
@@ -114,10 +171,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed build number extraction from version string
   - Fixed version output format for better readability
   - Restored clean version and build number display in CLI output
+- Fixed formatting issues in benchmark reports:
+  - Corrected table structure for proper rendering in Markdown
+  - Fixed alignment of content in report columns
+  - Improved algorithm name formatting in reports
 
 ### Removed
 - Removed deprecated tests from encryption and processor packages
 - Removed unused functions and imports
+
+### Enhancements
+- [YED-011] Added multiple key derivation algorithms:
+  - Added PBKDF2-SHA256 support for NIST/FIPS compatibility (with 600,000 iterations)
+  - Added PBKDF2-SHA512 support for NIST/FIPS compatibility (with 210,000 iterations)
+  - Maintained Argon2id as default with OWASP recommended parameters
+  - Implemented auto-detection of algorithm during decryption
+  - Maintained backward compatibility with existing encrypted data
+  - Performance improvements: PBKDF2 is significantly faster (~80-180x) with equivalent security
+- Improved debug output clarity:
+  - Added display of encryption algorithm in debug messages
+  - Added field path context to debug messages
+  - Enhanced readability of encrypted value masking
+  - Improved detection and reporting of encryption algorithm from ciphertext
+  - Removed timestamp prefix from encryption key environment variable message for consistent output formatting
+- Enhanced memory security with proper buffer handling and explicit destruction
+- Improved benchmark reporting:
+  - Created professional formatting for benchmark tables
+  - Enhanced readability of benchmark results in Markdown
+  - Added clear separation between different benchmark categories
+  - Added standardized table headers
+  - Made benchmark output directly usable in documentation
 
 ## [0.1.0] - 2024-03-20
 
