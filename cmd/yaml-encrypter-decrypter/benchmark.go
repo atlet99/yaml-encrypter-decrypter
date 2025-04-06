@@ -160,7 +160,7 @@ func runDecryptionBenchmarks() []benchmarkResult {
 	// Prepare standard encrypted data
 	encrypted, err := encryption.Encrypt(TestPassword, plaintext)
 	if err != nil {
-		log.Printf("Failed to prepare encrypted data: %v", err)
+		log.Printf("Failed to prepare encrypted data. Please check the application logs for details.")
 		return results
 	}
 
@@ -188,7 +188,7 @@ func runDecryptionBenchmarks() []benchmarkResult {
 	for _, algo := range algorithms {
 		encrypted, err := encryption.Encrypt(TestPassword, plaintext, algo)
 		if err != nil {
-			log.Printf("Failed to prepare encrypted data for %s: %v", algo, err)
+			log.Printf("Failed to prepare encrypted data for %s algorithm.", algo)
 			continue
 		}
 		encryptedData[algo] = encrypted
@@ -213,7 +213,7 @@ func runDecryptionBenchmarks() []benchmarkResult {
 			for i := 0; i < b.N; i++ {
 				buffer, err := encryption.Decrypt(TestPassword, encrypted)
 				if err != nil {
-					b.Fatalf("Decryption with %s failed: %v", algo, err)
+					b.Fatalf("Decryption with %s failed. Please check the error logs for details.", algo)
 				}
 				buffer.Destroy()
 			}

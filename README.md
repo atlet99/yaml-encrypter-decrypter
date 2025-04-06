@@ -114,6 +114,8 @@ The tool implements robust memory security measures to protect sensitive data:
 3. **Automatic Cleanup**: All sensitive buffers are automatically destroyed after use.
 4. **Signal Handling**: Properly handles interruption signals to ensure sensitive data is wiped from memory.
 5. **Buffer Lifecycle**: Explicit buffer lifecycle management with destroy calls to prevent memory leaks.
+6. **Sensitive Data Protection**: Prevents sensitive data from being exposed in logs or error messages.
+7. **Strong Password Requirements**: Enforces a minimum key length of 16 characters for both command-line and environment variable provided keys.
 
 ### **Key Derivation Algorithms**
 Choose from multiple key derivation algorithms with the `--algorithm` flag:
@@ -446,3 +448,17 @@ Dry-run mode: The following changes would be applied:
 ### **License**
 
 This is an open source project under the [MIT](https://github.com/atlet99/yaml-encrypter-decrypter/blob/main/LICENSE) license.
+
+### **Environment Variables**
+
+You can override command-line flags using environment variables:
+
+```bash
+# Set encryption key (must be at least 16 characters long)
+export YED_ENCRYPTION_KEY="my-super-secure-key"
+
+# Then run without specifying key on command line
+./bin/yed --file config.yaml --operation encrypt
+```
+
+The environment variable approach provides an alternative to passing sensitive data on the command line, which might be visible in process listings.
