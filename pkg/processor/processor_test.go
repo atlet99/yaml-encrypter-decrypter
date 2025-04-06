@@ -296,11 +296,11 @@ func BenchmarkEvaluateCondition(b *testing.B) {
 }
 
 func BenchmarkMaskEncryptedValue(b *testing.B) {
-	value := "AES256:test1234567890"
-	b.ResetTimer()
+	// Create a long encrypted value
+	value := AES + strings.Repeat("abcdefghijklmnopqrstuvwxyz", 10)
 	for i := 0; i < b.N; i++ {
 		masked := maskEncryptedValue(value, false)
-		if !strings.HasSuffix(masked, "********") {
+		if !strings.Contains(masked, "***") {
 			b.Fatal("maskEncryptedValue did not properly mask the value")
 		}
 	}
@@ -311,37 +311,42 @@ func TestMaskEncryptedValue(t *testing.T) {
 		name     string
 		value    string
 		debug    bool
+		path     string
 		expected string
 	}{
 		{
 			name:     "encrypted value",
-			value:    "AES256:test",
-			debug:    false,
-			expected: "AES256:*****",
+			value:    AES + "test",
+			debug:    true,
+			path:     "test.path",
+			expected: AES + "test",
 		},
 		{
-			name:     "encrypted value with debug",
-			value:    "AES256:test",
-			debug:    true,
-			expected: "AES256:test",
+			name:     "long encrypted value",
+			value:    AES + "abcdefghijklmnopqrstuvwxyz",
+			debug:    false,
+			path:     "test.long.path",
+			expected: AES + "abc***xyz",
 		},
 		{
 			name:     "non-encrypted value",
-			value:    "test",
+			value:    "plaintext",
 			debug:    false,
-			expected: "test",
+			path:     "",
+			expected: "plaintext",
 		},
 		{
-			name:     "encrypted value with debug",
-			value:    "ENC[AES256_GCM,data:1234567890,iv:1234567890,tag:1234567890,type:str]",
-			debug:    true,
-			expected: "ENC[AES256_GCM,data:1234567890,iv:1234567890,tag:1234567890,type:str]",
+			name:     "empty value",
+			value:    "",
+			debug:    false,
+			path:     "",
+			expected: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := maskEncryptedValue(tt.value, tt.debug)
+			result := maskEncryptedValue(tt.value, tt.debug, tt.path)
 			if result != tt.expected {
 				t.Errorf("maskEncryptedValue() = %v, want %v", result, tt.expected)
 			}
@@ -442,11 +447,11 @@ func TestMaskNodeValues(t *testing.T) {
 			name: "scalar node with encrypted value",
 			node: &yaml.Node{
 				Kind:  yaml.ScalarNode,
-				Value: "AES256:abcdefghijklmnopqrstuvwxyz",
+				Value: AES + "abcdefgh",
 			},
 			expected: &yaml.Node{
 				Kind:  yaml.ScalarNode,
-				Value: "AES256:abcdefgh********",
+				Value: AES + "abc***fgh",
 			},
 		},
 		{
@@ -454,15 +459,27 @@ func TestMaskNodeValues(t *testing.T) {
 			node: &yaml.Node{
 				Kind: yaml.SequenceNode,
 				Content: []*yaml.Node{
-					{Kind: yaml.ScalarNode, Value: "AES256:abcdefghijklmnopqrstuvwxyz"},
-					{Kind: yaml.ScalarNode, Value: "AES256:abc"},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: AES + "abcdefgh",
+					},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: AES + "12345678",
+					},
 				},
 			},
 			expected: &yaml.Node{
 				Kind: yaml.SequenceNode,
 				Content: []*yaml.Node{
-					{Kind: yaml.ScalarNode, Value: "AES256:abcdefgh********"},
-					{Kind: yaml.ScalarNode, Value: "AES256:abc********"},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: AES + "abc***fgh",
+					},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: AES + "123***678",
+					},
 				},
 			},
 		},
@@ -471,19 +488,43 @@ func TestMaskNodeValues(t *testing.T) {
 			node: &yaml.Node{
 				Kind: yaml.MappingNode,
 				Content: []*yaml.Node{
-					{Kind: yaml.ScalarNode, Value: "key1"},
-					{Kind: yaml.ScalarNode, Value: "AES256:abcdefghijklmnopqrstuvwxyz"},
-					{Kind: yaml.ScalarNode, Value: "key2"},
-					{Kind: yaml.ScalarNode, Value: "AES256:abc"},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: "key1",
+					},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: AES + "abcdefgh",
+					},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: "key2",
+					},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: AES + "12345678",
+					},
 				},
 			},
 			expected: &yaml.Node{
 				Kind: yaml.MappingNode,
 				Content: []*yaml.Node{
-					{Kind: yaml.ScalarNode, Value: "key1"},
-					{Kind: yaml.ScalarNode, Value: "AES256:abcdefgh********"},
-					{Kind: yaml.ScalarNode, Value: "key2"},
-					{Kind: yaml.ScalarNode, Value: "AES256:abc********"},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: "key1",
+					},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: AES + "abc***fgh",
+					},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: "key2",
+					},
+					{
+						Kind:  yaml.ScalarNode,
+						Value: AES + "123***678",
+					},
 				},
 			},
 		},
@@ -491,7 +532,7 @@ func TestMaskNodeValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			maskNodeValues(tt.node)
+			maskNodeValues(tt.node, false)
 			if !reflect.DeepEqual(tt.node, tt.expected) {
 				t.Errorf("maskNodeValues() = %v, want %v", tt.node, tt.expected)
 			}
