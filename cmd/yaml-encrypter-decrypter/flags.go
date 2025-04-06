@@ -53,19 +53,30 @@ func parseFlags() appFlags {
 
 // getEncryptionKey returns the encryption key from flag or environment variable
 func getEncryptionKey(flagKey string, debug bool) (string, error) {
+	var key string
+
 	if flagKey != "" {
-		return flagKey, nil
-	}
-
-	envKey := os.Getenv("YED_ENCRYPTION_KEY")
-	if envKey != "" {
-		if debug {
-			fmt.Println("[DEBUG] Using encryption key from YED_ENCRYPTION_KEY environment variable")
+		key = flagKey
+	} else {
+		envKey := os.Getenv("YED_ENCRYPTION_KEY")
+		if envKey != "" {
+			if debug {
+				fmt.Println("[DEBUG] Using encryption key from YED_ENCRYPTION_KEY environment variable")
+			}
+			key = envKey
 		}
-		return envKey, nil
 	}
 
-	return "", fmt.Errorf("Error: encryption key not provided")
+	if key == "" {
+		return "", fmt.Errorf("Error: encryption key not provided")
+	}
+
+	// Validate key length
+	if len(key) < encryption.PasswordRecommendedLength {
+		return "", fmt.Errorf("Error: encryption key must be at least %d characters long for adequate security", encryption.PasswordRecommendedLength)
+	}
+
+	return key, nil
 }
 
 // validateAlgorithm validates the algorithm flag and returns the corresponding KeyDerivationAlgorithm

@@ -145,6 +145,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed actions/checkout to commit hash for better security
   - Prevented potential supply chain attacks
   - Improved reproducibility of workflows
+- Enhanced password validation:
+  - Implemented minimum password length check (16 characters) for encryption keys
+  - Added validation for both command-line keys and environment variable keys
+  - Improved error message clarity for password requirements
+- Improved security of error logging:
+  - Removed sensitive error details from benchmark logs
+  - Ensured error messages don't expose encryption keys or other sensitive data
+  - Added generic error messages that protect sensitive information while still being helpful
+- Fixed direct exposure of password information in logs:
+  - Refactored password validation to avoid direct password references in logs
+  - Removed encrypted value length information from debug logs
+  - Created separate helper functions to prevent sensitive data exposure
+  - Improved masking of sensitive data in all output modes
 
 ### Fixed
 - Fixed argument order in encryption/decryption function calls to properly handle key and value parameters

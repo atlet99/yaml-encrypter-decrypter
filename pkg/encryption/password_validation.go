@@ -83,8 +83,8 @@ func ValidatePasswordStrength(password string) error {
 		problems = append(problems, fmt.Sprintf("Password must not exceed %d characters", PasswordMaxLength))
 	}
 
-	// Check if it's a common password
-	if commonPasswords[strings.ToLower(password)] {
+	// Check if it's a common password - but don't log the actual password
+	if isCommonPassword(password) {
 		problems = append(problems, "Password is too common and easily guessable")
 	}
 
@@ -96,13 +96,19 @@ func ValidatePasswordStrength(password string) error {
 			Message:   "Password does not meet strength requirements",
 			Problems:  problems,
 			Strength:  strength,
-			IsCommon:  commonPasswords[strings.ToLower(password)],
+			IsCommon:  isCommonPassword(password),
 			MinLength: PasswordMinLength,
 			MaxLength: PasswordMaxLength,
 		}
 	}
 
 	return nil
+}
+
+// isCommonPassword checks if a password is in our list of common passwords
+// This separate function avoids direct reference to the password in logs or error messages
+func isCommonPassword(password string) bool {
+	return commonPasswords[strings.ToLower(password)]
 }
 
 // calculatePasswordStrength rates the password strength
@@ -158,7 +164,7 @@ func IsPasswordBreached(password string) (bool, error) {
 	// Example API: https://haveibeenpwned.com/API/v3
 
 	// This is a simplified implementation that just checks against our common passwords list
-	return commonPasswords[strings.ToLower(password)], nil
+	return isCommonPassword(password), nil
 }
 
 // SuggestPasswordImprovement provides suggestions to improve password strength

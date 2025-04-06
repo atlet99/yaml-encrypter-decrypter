@@ -147,9 +147,8 @@ func maskEncryptedValue(value string, debug bool, fieldPath ...string) string {
 	}
 
 	// The debug parameter is now only used for logging, not for masking decision
-	debugLog(debug, "Masking encrypted value%s (length: %d, algo: %s)",
+	debugLog(debug, "Masking encrypted value%s (algo: %s)",
 		contextInfo,
-		len(encrypted),
 		detectAlgorithm(value),
 	)
 
