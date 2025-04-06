@@ -376,48 +376,56 @@ YAML processing completed in 237.009042ms
 Dry-run mode: The following changes would be applied:
 ```
 
-## **Changes in Recent Update**
+## **Recent Updates**
 
-### **Cryptographic Algorithm Flexibility**
+### **Algorithm Flexibility**
 - Added support for multiple key derivation algorithms:
-  - **Argon2id**: Default algorithm, OWASP recommended
+  - **Argon2id**: Default algorithm recommended by OWASP
   - **PBKDF2-SHA256**: Added for NIST/FIPS compatibility (600,000 iterations)
   - **PBKDF2-SHA512**: Added for NIST/FIPS compatibility (210,000 iterations)
 - Performance comparison:
   - PBKDF2-SHA256 is ~180x faster than Argon2id with comparable security
   - PBKDF2-SHA512 is ~80x faster than Argon2id with comparable security
-- Algorithm is automatically detected during decryption
-- Maintains backward compatibility with previous encrypted data
-- Allows specifying algorithm via command-line argument
+- Algorithm is auto-detected during decryption
+- Maintains backward compatibility with previously encrypted data
+- Algorithm can be specified via command-line argument
+- Added `SetKeyDerivationAlgorithm` function to the processor package for flexible algorithm selection
 
 ### **Password Security Enhancements**
-- Implemented OWASP-compliant password strength validation:
+- Implemented robust password strength validation according to OWASP:
   - Support for passwords up to 64 characters to allow passphrases
   - Detection and prevention of common/compromised passwords
   - Password strength assessment (Low/Medium/High)
   - Intelligent suggestions for password improvement
-  - Checking for character variety (uppercase, lowercase, numbers, symbols)
-  - No arbitrary composition rules limiting character types
+  - Character diversity checks (uppercase, lowercase, digits, symbols)
+  - No arbitrary rules limiting character types
 
 ### **Performance Optimizations**
-- Optimized Argon2id parameters following OWASP recommendations:
+- Optimized Argon2id parameters according to OWASP recommendations:
   - Memory reduced from 256 MB to 9 MB (9216 KiB)
   - Thread count reduced from 8 to 1 while maintaining 4 iterations
-  - Key derivation is approximately 8 times faster (reduced from ~136ms to ~17ms)
-  - Memory usage reduced by 27 times (from ~268MB to ~10MB)
-  - Maintains same security level while significantly reducing resource consumption
+  - Key derivation is ~8x faster (reduced from ~136ms to ~17ms)
+  - Memory usage reduced by 27x (from ~268 MB to ~10 MB)
+  - Maintains the same security level with significantly reduced resource consumption
   - Improved performance on resource-constrained devices
   - Reduced risk of memory-based DoS attacks
 
+### **Build System Improvements**
+- Fixed Makefile for proper compilation of all source files:
+  - Updated build targets to correctly include all source files
+  - Changed build commands to target directories instead of individual files
+  - Added proper path prefixes to ensure correct Go module resolution
+  - Ensured consistent building across all platforms
+
 ### **Enhanced Diff Output**
-- Added line numbers to the diff output for easier identification of changes
-- The output format now shows: `[line_number] - old_value` and `[line_number] + new_value`
-- Added support for masking sensitive information in debug and diff output
+- Added line numbers to diff output for easier change identification
+- Output format now shows: `[line_number] - old_value` and `[line_number] + new_value`
+- Added support for masking sensitive information in debug output and diff mode
 
 ### **Security Improvements**
 - Added proper masking of sensitive values in debug output and diff mode
 - Implemented configurable masking via `unsecure_diff` parameter
-- Enhanced protection of encrypted values with only partial display
+- Enhanced protection of encrypted values with partial display
 
 ### **Bug Fixes and Improvements**
 - Fixed argument order in encryption/decryption function calls to properly handle key and value parameters

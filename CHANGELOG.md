@@ -57,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added better formatting of algorithm names with proper hyphenation
   - Enhanced readability by standardizing units and column alignment
   - Improved table layout for better documentation and README inclusion
+- Added function `SetKeyDerivationAlgorithm` in the processor package to select the encryption algorithm
+- Fixed Makefile for proper compilation of all .go files in the project:
+  - Updated build targets to correctly include all source files
+  - Changed build commands to target directories instead of individual files
+  - Ensured proper compilation across all platforms
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -97,6 +102,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Translated all Russian comments to English in processor.go for better code consistency
 - Refactored mainWithExitCode function into smaller, more focused functions to reduce cognitive complexity and improve maintainability
 - Added detailed performance benchmarks section to README.md with comprehensive comparison of key derivation algorithms
+- Improved Makefile:
+  - Fixed build commands to properly compile all source files
+  - Changed target paths from specific files to directories
+  - Added proper path prefixes to ensure correct Go module resolution
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
