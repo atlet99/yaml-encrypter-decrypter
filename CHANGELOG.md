@@ -8,11 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enhanced multiline YAML support:
+  - Added comprehensive multiline node handling with style preservation (literal `|`, folded `>`)
+  - Implemented intelligent style detection and restoration during encryption/decryption cycles
+  - Added special handling for PEM certificates and keys in both formats (literal block and quoted string with escaped newlines)
+  - Created automatic detection of content types requiring special formatting (certificates, tabs, newlines)
+  - Added style markers to preserve formatting information through encryption/decryption cycles
+  - Implemented smart formatting during decryption based on content type and original style
+- Added detailed examples of multiline encryption/decryption in README.md
 - Added support for `action: none` in rules to explicitly exclude paths from encryption
 - Added priority-based rule processing where `action: none` rules are processed first
 - Added recursive path exclusion for `action: none` rules (all nested paths are also excluded)
 - Added detailed documentation for rule configuration in README.md
 - Added line numbers in diff output for easier identification of changes
+- Added Staticcheck static analyzer integration for improved code quality checks
+- Added Makefile commands for code quality tooling:
+  - `upgrade-deps` command for updating all dependencies to latest versions
+  - `staticcheck` command for running static analysis
+  - `check-all` command for running all code quality checks at once
 - [YED-001] New processor package with enhanced YAML processing capabilities
 - [YED-002] Extended debug logging functionality
 - [YED-003] New security features in encryption package
@@ -62,6 +75,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated build targets to correctly include all source files
   - Changed build commands to target directories instead of individual files
   - Ensured proper compilation across all platforms
+- Added staticcheck integration for static code analysis
+- Added new Makefile commands:
+  - `upgrade-deps` to upgrade all dependencies
+  - `staticcheck` to run static analysis
+  - `check-all` to run all code quality checks
+- Added `--config` flag to specify custom path to configuration file
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -164,6 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed base64 string validation with proper padding handling
 - Fixed error handling for invalid operations
 - Fixed tests for encrypted value validation
+- Fixed error message style in code to follow Go best practices (lowercase error strings)
 - Restored --version flag functionality
 - Fixed version information display
 - Improved version display functionality:
@@ -175,6 +195,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Corrected table structure for proper rendering in Markdown
   - Fixed alignment of content in report columns
   - Improved algorithm name formatting in reports
+- Fixed rule matching logic in `matchesRule` function:
+  - Fixed an issue where rules with pattern "**" would match all paths regardless of the block value
+  - Changed the pattern for skip_axel_fix rule from "**" to "*" to properly limit its scope to only the specified block
+  - Improved check order to ensure block matching is performed before pattern matching
 
 ### Removed
 - Removed deprecated tests from encryption and processor packages

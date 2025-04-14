@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/atlet99/yaml-encrypter-decrypter/pkg/processor"
 
@@ -69,8 +70,33 @@ func mainWithExitCode() int {
 	keyBuffer := memguard.NewBufferFromBytes([]byte(key))
 	defer keyBuffer.Destroy()
 
+	// Determine the config path
+	configFilePath := ".yed_config.yml"
+	if flags.configPath != "" {
+		configFilePath = flags.configPath
+		if flags.debug {
+			log.Printf("Using custom config path: %s\n", configFilePath)
+		}
+	}
+
+	// Convert relative path to absolute path
+	if !filepath.IsAbs(configFilePath) {
+		absPath, err := filepath.Abs(configFilePath)
+		if err == nil {
+			configFilePath = absPath
+			if flags.debug {
+				log.Printf("Using absolute config path: %s\n", configFilePath)
+			}
+		} else {
+			log.Printf("Warning: could not convert %s to absolute path: %v\n", configFilePath, err)
+		}
+	}
+
+	// Update flags.configPath with the resolved path
+	flags.configPath = configFilePath
+
 	// Load rules from config file
-	rules, _, err := processor.LoadRules(".yed_config.yml", flags.debug)
+	rules, _, err := processor.LoadRules(configFilePath, flags.debug)
 	if err != nil {
 		log.Printf("Error loading rules: %v\n", err)
 		return 1

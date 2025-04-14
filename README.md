@@ -1,6 +1,7 @@
 # YAML Encrypter-Decrypter (`yed`)
 
-![Go version](https://img.shields.io/github/go-mod/go-version/atlet99/yaml-encrypter-decrypter/main?style=flat&label=go-version) [![Docker Image Version](https://img.shields.io/docker/v/zetfolder17/yaml-encrypter-decrypter?label=docker%20image&sort=semver)](https://hub.docker.com/r/zetfolder17/yaml-encrypter-decrypter) ![Docker Image Size](https://img.shields.io/docker/image-size/zetfolder17/yaml-encrypter-decrypter/latest) [![CI](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml/badge.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml) [![GitHub contributors](https://img.shields.io/github/contributors/atlet99/yaml-encrypter-decrypter)](https://github.com/atlet99/yaml-encrypter-decrypter/graphs/contributors/) [![Go Report Card](https://goreportcard.com/badge/github.com/atlet99/yaml-encrypter-decrypter)](https://goreportcard.com/report/github.com/atlet99/yaml-encrypter-decrypter) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atlet99/yaml-encrypter-decrypter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/atlet99/yaml-encrypter-decrypter) ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/atlet99/yaml-encrypter-decrypter?sort=semver)
+![Go version](https://img.shields.io/github/go-mod/go-version/atlet99/yaml-encrypter-decrypter/main?style=flat&label=go-version) [![Docker Image Version](https://img.shields.io/docker/v/zetfolder17/yaml-encrypter-decrypter?label=docker%20image&sort=semver)](https://hub.docker.com/r/zetfolder17/yaml-encrypter-decrypter) ![Docker Image Size](https://img.shields.io/docker/image-size/zetfolder17/yaml-encrypter-decrypter/latest) [![CI](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml/badge.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml) [![GitHub contributors](https://img.shields.io/github/contributors/atlet99/yaml-encrypter-decrypter)](https://github.com/atlet99/yaml-encrypter-decrypter/graphs/contributors/) [![Go Report Card](https://goreportcard.com/badge/github.com/atlet99/yaml-encrypter-decrypter)](https://goreportcard.com/report/github.com/atlet99/yaml-encrypter-decrypter) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atlet99/yaml-encrypter-decrypter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/atlet99/yaml-encrypter-decrypter) ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/atlet99/yaml-encrypter-decrypter?sort=semver) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/blob/main/LICENSE) [![CodeQL](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/codeql.yml/badge.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/codeql.yml)
+
 
 *A Go-based CLI tool for encrypting and decrypting sensitive data in YAML files. It uses modern encryption algorithms and a robust configuration system to ensure your data is securely handled.*
 
@@ -14,9 +15,17 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
   - Argon2id (default) with OWASP recommended parameters
   - PBKDF2-SHA256 (NIST/FIPS compatible) with 600,000 iterations
   - PBKDF2-SHA512 (NIST/FIPS compatible) with 210,000 iterations
+- Supports all YAML multiline formats:
+  - Literal style (|) with preserved line breaks
+  - Folded style (>) for single-line rendering with spaces
+  - PEM certificates/keys in both multiline literal and escaped newline formats
 - Secure memory handling with memguard to protect sensitive data in memory.
 - HMAC for validating data integrity.
 - Compression using gzip to optimize data storage.
+- Improved rule matching logic:
+  - Proper block-first path evaluation for more accurate rule application
+  - Precise control over which paths should be excluded from encryption
+  - Fix for global pattern matching to respect block specifications
 - Supports cross-platform builds (Linux, macOS, Windows).
 - Comprehensive Makefile for building, testing, and running the project.
 - Enhanced validation of encrypted data and base64 strings.
@@ -117,6 +126,118 @@ The tool implements robust memory security measures to protect sensitive data:
 6. **Sensitive Data Protection**: Prevents sensitive data from being exposed in logs or error messages.
 7. **Strong Password Requirements**: Enforces a minimum key length of 16 characters for both command-line and environment variable provided keys.
 
+### **Multiline YAML Support**
+The tool provides comprehensive support for encrypting and decrypting multiline YAML content:
+
+1. **Format Detection**: Automatically detects multiline content by analyzing YAML node style and content.
+2. **Style Preservation**: Preserves original YAML multiline styles (literal `|` or folded `>`) during encryption/decryption.
+3. **PEM Support**: Special handling for PEM certificates and private keys in both formats:
+   - Multiline literal blocks with preserved line breaks
+   - Single-line strings with escaped newlines (`\n`)
+4. **Smart Formatting**: Applies appropriate style when decrypting based on content type:
+   - PEM content uses literal style to preserve exact formatting
+   - Content with tabs uses literal style for proper representation
+   - Multiline content is formatted according to its original style when possible
+5. **Seamless Operation**: No special configuration needed - multiline handling works automatically.
+
+#### **Multiline Encryption Examples**
+
+**Original YAML with multiline content:**
+```yaml
+# Example with various multiline formats
+smart_config:
+  auth:
+    # Literal style - preserves line breaks
+    password: |
+      ThisIsAVery
+      LongPassword
+      WithMultipleLines
+    # Folded style - converted to spaces
+    description: >
+      This is a folded text
+      that will be rendered as
+      a single line with spaces.
+
+certificates:
+  # Multiline literal block for certificates
+  public_key: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxWzg9vJJR0TIIu5XzCQG
+    BijxB+EFPYvkJ/3vbXFNaYQTvMPwcU3I9JXaUFwIHHjMnHElo6oHECBZzj5ki9Dg
+    3l1FcJn598L0D0pLECZ9wOJeGHlPP/CGXj6gWVj6kfn3t/9I4hQ7oz5X+JzmqGEg
+    /JyqVVZ1BqHd09jrLQIDAQAB
+    -----END PUBLIC KEY-----
+  
+  # Certificate with escaped newlines (quoted style)
+  quoted_public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\nxWzg9vJJR0TIIu5XzCQG\n-----END PUBLIC KEY-----"
+```
+
+**After encryption:**
+```yaml
+# Example with various multiline formats
+smart_config:
+  auth:
+    # Encrypted literal style - will be decrypted with preserved line breaks
+    password: AES256:YXJnb24yaWQAAAAAAAAAm+G/h4Mwe5pHQvCxKvS7d2QfcO7N5iUVwVr0BIQ2+eXxPU7KqJMbM5BFnl2i3RiG2LQdKQpWnpxr8WctL3/l83acdTUdqq5YwJLZeWKwxW0qFMJHuGFgxJVJ8CpnFZFOeewVbUoS/oqbjNR9lGqF9I6E/8FJOp/QZUR4VTKxWICMUBeTJBOlf9JHtNJlzeFsQVKQ/Z2PNDvgjfYI0GJ7y5Ry/vdjdXVEDvlKwKTiXBQXvWf8rL7L/T2N9eOiGxZ6iRV+oM8hqQ==
+    # Encrypted folded style - will be decrypted with preserved spaces
+    description: AES256:YXJnb24yaWQAAAAAAAAAAl5gR1X7uPMikY8sQZP2YjJ8X7ixOu2cY5nAHIMTnxvILrI+Q2FTXxV9wTSOvbTQDlpHmcTCshpfYX3qRYMUBt5FRNtAqeRQxP/5R0zLi0Gg56i/vsDdLRkDXU32T9cAoUHcHN5oOy87tpSWnhrkwp3pzZ9UPPwZsOuOoEP+GDWoRsxNaNKKD7FaXNXRyKqZcQlcHcgVMPtUBx19SrGfE/rVmtO2QzWQl4YLCVXpgMZ4N5A7lZ9zslDFTIzImKUuHC8vWCPcOkTpIgFElhCDz5i0M9hB
+
+certificates:
+  # Encrypted certificate - will be decrypted as literal block
+  public_key: AES256:YXJnb24yaWQAAAAAAAAAAEUpnFVVS1KZtHZwUWwsaAiFQhszeEM6aYwEJrWvFLMtOozIpcKcyBs0utUs9gvoAaAsiQzCF+ow/hmobI8ghjmo23Aq4hwX9ZzUIo47MeSNsISGtz2R6PBl0mvwLUOp9RARj3U5/RDS1tC7N7qnTpesvVUlt3gDYc2hPhJEauJEekZm9wd6Z26NJTWQKREFi8/ZtzIkPp5/ie+sOFSmWXdajSunYgKk1iBYFhohsv9ULkrCSQke/s1wT9qbDA3HwPyCJ3LdJdE78c+uMRa17Acvi/W/kyFAD3pKliSBWE6ZNc41JGiNAzZ2KpVmOMY6SeYYP/AxBPNfKwgdyHDCyrwf8dIFMNVr6NItbm8D6QhkgA++L0XkksrvbWa8cG+8KwIK75IrP1w4xhYvuRS0qraBVhJIQMu05+0SGNbfmYpSWZJJpDA8hQVBQepPWrxilBg9XiHIvOM84ykVIS6z7InyPwn+sEhcagQUA4NKBiAE6yXT3sV8khhqeM8imsgCjd+8PTDWJDXYyees8LVnQrQWPWBL5lGIQvfBwY7D/vinHvHNCMRCIbbcUD8n9Rk1RWXnz5yaCcZiAd1TNYYlpgya44cIASUVPSzotvKBaYG4a9Wxe3XTmgwkqYwSg0Y7QuRlSeTo8oE=
+  
+  # Encrypted quoted certificate - will be decrypted with escaped newlines
+  quoted_public_key: AES256:YXJnb24yaWQAAAAAAAAAAMsXrCK7X+pgKU8J8C23ns+ubKW/LzFpi0GUcJFMJWgqnHc6RlQhmLuwVtQmvNBwA1C+2is/IjRfnipRdqzMEXz/ULSwMB+H9u2MTHXnXCFjn0wUc1pw0I/9xCVk8yXYVueaCO8kdyFExrTHpT8VfbsQqxKHZ/sEJ4WZIszaHpjkL8rbVKaJxl7hgHXdL1Q3D9oRQ9q/3MOXCLsWj1EPu1bNOQueDdgJTeozKErJGaHQsUB/1ODeiVmjKVlePxdKOlmIsLMCqo0vGx8elvRii3cdnfmCDnz5iT9z6VuYFxDXLtbWSWa41jQMaHMhwW7NnGJEFBzIGr+/yE9+qEqu9VMs4kFA79PRB1vPDVL+SZn62ewg6mbr6992uUJBn6AvtM4RsciQzzR5iE6WcFRer/7ZhfVMcCd27KRNS/X6i+jqzdnFmNLh+wPekApozwcvPPfcLbXtYRE52kNgqaN7/QQjup6EAPgRLB/qW+dAz5CCfGfCwzmAtKV3yiHgeZxwoy9E6YAyqJtmsUamUwkaW/6jA8airYzQ7zdEp15QKLGUDYF3n2OpvhRgwGWfiPfC0TRFmTRFpA4fimzFKkwAad1FKqBcH87HtyVfwgF38NZsPxkC2jqZ44mMcFf4v1f9w/aF4pZ65Q==|escaped_newlines
+```
+
+**After decryption (back to original content with preserved styles):**
+```yaml
+# Example with various multiline formats
+smart_config:
+  auth:
+    # Literal style - preserves line breaks
+    password: |
+      ThisIsAVery
+      LongPassword
+      WithMultipleLines
+    # Folded style - converted to spaces
+    description: >
+      This is a folded text
+      that will be rendered as
+      a single line with spaces.
+
+certificates:
+  # Multiline literal block for certificates
+  public_key: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxWzg9vJJR0TIIu5XzCQG
+    BijxB+EFPYvkJ/3vbXFNaYQTvMPwcU3I9JXaUFwIHHjMnHElo6oHECBZzj5ki9Dg
+    3l1FcJn598L0D0pLECZ9wOJeGHlPP/CGXj6gWVj6kfn3t/9I4hQ7oz5X+JzmqGEg
+    /JyqVVZ1BqHd09jrLQIDAQAB
+    -----END PUBLIC KEY-----
+  
+  # Certificate with escaped newlines (quoted style)
+  quoted_public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\nxWzg9vJJR0TIIu5XzCQG\n-----END PUBLIC KEY-----"
+```
+
+#### **How Multiline Processing Works**
+
+When processing multiline YAML content, the tool:
+
+1. **During encryption**:
+   - Detects if content is multiline or contains escaped newlines (`\n`)
+   - Identifies PEM certificates and keys with special pattern detection
+   - Preserves style information during encryption
+   - Adds special markers for escaped newline format when needed
+
+2. **During decryption**:
+   - Examines the encrypted data and any style markers
+   - Restores the appropriate style based on content type and original format
+   - Uses appropriate YAML style (literal `|` or double-quoted `"..."`) based on content
+   - Special handling for PEM certificates to maintain correct formatting
+
+This ensures that all forms of multiline content, including certificates and keys, maintain their exact formatting and representation after encryption and decryption cycles.
+
 ### **Key Derivation Algorithms**
 Choose from multiple key derivation algorithms with the `--algorithm` flag:
 ```bash
@@ -189,7 +310,12 @@ make build
 
 ### **Configuration**
 
-The tool uses a `.yed_config.yml` file for customizable behavior. Place this file in the working directory.
+The tool uses a `.yed_config.yml` file for customizable behavior. By default, this file should be placed in the working directory. You can specify a custom path to the configuration file using the `--config` flag.
+
+**Example usage with custom config path:**
+```bash
+./bin/yed --file config.yaml --key="my-super-secure-key" --operation encrypt --config /path/to/custom/.yed_config.yml
+```
 
 **Example `.yed_config.yml`:**
 ```yaml
@@ -267,6 +393,19 @@ export YED_ENCRYPTION_KEY="my-super-secure-key"
 ### **Command-Line Interface**
 
 *The tool provides various options to encrypt and decrypt data:*
+
+**Available Flags:**
+- `--file` - Path to the YAML file to process
+- `--key` - Encryption/decryption key (can also be set via YED_ENCRYPTION_KEY env variable)
+- `--operation` - Operation to perform (encrypt/decrypt)
+- `--dry-run` - Print the result without modifying the file
+- `--diff` - Show differences between original and encrypted values
+- `--debug` - Enable debug logging
+- `--config` - Path to the .yed_config.yml file (default: .yed_config.yml in current directory)
+- `--algorithm` - Key derivation algorithm to use (argon2id, pbkdf2-sha256, pbkdf2-sha512)
+- `--version` - Show version information
+- `--benchmark` - Run performance benchmarks
+- `--bench-file` - Path to save benchmark results (default: stdout)
 
 **Encrypt a Single Value**
 ```bash
