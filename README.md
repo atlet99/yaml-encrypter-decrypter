@@ -14,6 +14,10 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
   - Argon2id (default) with OWASP recommended parameters
   - PBKDF2-SHA256 (NIST/FIPS compatible) with 600,000 iterations
   - PBKDF2-SHA512 (NIST/FIPS compatible) with 210,000 iterations
+- Supports all YAML multiline formats:
+  - Literal style (|) with preserved line breaks
+  - Folded style (>) for single-line rendering with spaces
+  - PEM certificates/keys in both multiline literal and escaped newline formats
 - Secure memory handling with memguard to protect sensitive data in memory.
 - HMAC for validating data integrity.
 - Compression using gzip to optimize data storage.
@@ -116,6 +120,22 @@ The tool implements robust memory security measures to protect sensitive data:
 5. **Buffer Lifecycle**: Explicit buffer lifecycle management with destroy calls to prevent memory leaks.
 6. **Sensitive Data Protection**: Prevents sensitive data from being exposed in logs or error messages.
 7. **Strong Password Requirements**: Enforces a minimum key length of 16 characters for both command-line and environment variable provided keys.
+
+### **Multiline YAML Support**
+The tool provides comprehensive support for encrypting and decrypting multiline YAML content:
+
+1. **Format Detection**: Automatically detects multiline content by analyzing YAML node style and content.
+2. **Style Preservation**: Preserves original YAML multiline styles (literal `|` or folded `>`) during encryption/decryption.
+3. **PEM Support**: Special handling for PEM certificates and private keys in both formats:
+   - Multiline literal blocks with preserved line breaks
+   - Single-line strings with escaped newlines (`\n`)
+4. **Smart Formatting**: Applies appropriate style when decrypting based on content type:
+   - PEM content uses literal style to preserve exact formatting
+   - Content with tabs uses literal style for proper representation
+   - Multiline content is formatted according to its original style when possible
+5. **Seamless Operation**: No special configuration needed - multiline handling works automatically.
+
+For more details and examples, see the [multiline support documentation](.test/README-multiline.md).
 
 ### **Key Derivation Algorithms**
 Choose from multiple key derivation algorithms with the `--algorithm` flag:

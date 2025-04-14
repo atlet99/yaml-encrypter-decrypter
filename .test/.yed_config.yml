@@ -1,0 +1,41 @@
+encryption:
+  # General settings from main config
+  unsecure_diff: true # Set to true to show actual values in diff mode
+  
+  rules:
+    # Existing test-specific rules
+    - name: "password_rule"
+      block: "smart_config.auth"
+      pattern: "password"
+      description: "Encrypt password field"
+    - name: "api_key_rule"
+      block: "secrets"
+      pattern: "api_key"
+      description: "Encrypt API key"
+    - name: "private_key_rule"
+      block: "secrets"
+      pattern: "private_key"
+      description: "Encrypt private key"
+    - name: "block_key_rule"
+      block: "ssh"
+      pattern: "block_key"
+      description: "Encrypt block SSH key"
+    - name: "string_key_rule"
+      block: "ssh"
+      pattern: "string_key"
+      description: "Encrypt string SSH key"
+      
+    # Rules from main config
+    - name: "skip_axel_fix"
+      block: "axel.fix"
+      pattern: "**"
+      action: "none"
+      description: "Skip encryption for all values in axel.fix block"
+    - name: "encrypt_smart_config"
+      block: "smart_config"
+      pattern: "**"
+      description: "Encrypt all values in smart_config block"
+    - name: "encrypt_passwords"
+      block: "*"
+      pattern: "pass*"
+      description: "Encrypt all password fields globally" 

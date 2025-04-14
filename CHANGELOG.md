@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added support for multiline YAML nodes with proper style preservation
+- Added automatic detection of multiline content and special format handling
+- Added proper handling of PEM keys and certificates in both literal and escaped newline formats
+- Added ability to encrypt/decrypt multiline blocks while preserving their format
+- Added documentation for multiline support in README-multiline.md
+- Added test files for validating multiline functionality
 - Added support for `action: none` in rules to explicitly exclude paths from encryption
 - Added priority-based rule processing where `action: none` rules are processed first
 - Added recursive path exclusion for `action: none` rules (all nested paths are also excluded)

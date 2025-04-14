@@ -18,9 +18,6 @@ bin
 *.so
 *.dylib
 
-# Test binary, built with `go test -c`
-*.test
-
 # Output of the go coverage tool
 *.out
 *.prof
@@ -41,8 +38,9 @@ go.work
 debug/
 
 # Project specific
-.yed**
-.test/
+.yed*
+!.test/.yed_config.yml
+.test/**/*.bak
 
 # OS specific
 .DS_Store

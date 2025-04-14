@@ -428,6 +428,20 @@ func processScalarNode(node *yaml.Node, path string, key, operation string, rule
 		return nil
 	}
 
+	// Process multiline nodes first
+	processed, err := ProcessMultilineNode(node, path, key, operation, debug)
+	if err != nil {
+		return fmt.Errorf("failed to process multiline node at path %s: %w", path, err)
+	}
+
+	// If the node was processed as multiline, mark it and return
+	if processed {
+		processedPaths[path] = true
+		debugLog(debug, "Successfully processed multiline node at path %s with rule %s", path, ruleName)
+		return nil
+	}
+
+	// Standard processing for non-multiline nodes
 	if shouldProcess {
 		debugLog(debug, "Processing path %s with rule %s", path, ruleName)
 		processedPaths[path] = true
@@ -1129,6 +1143,21 @@ func processSequenceNodeWithExclusions(node *yaml.Node, key, operation string, r
 func processScalarNodeWithExclusions(node *yaml.Node, key, operation string, rule Rule, currentPath string, processedPaths, excludedPaths map[string]bool, debug bool) error {
 	if !excludedPaths[currentPath] && matchesRule(currentPath, rule, debug) {
 		debugLog(debug, "Processing scalar node at path: %s", currentPath)
+
+		// Process multiline nodes first
+		processed, err := ProcessMultilineNode(node, currentPath, key, operation, debug)
+		if err != nil {
+			return fmt.Errorf("failed to process multiline node at path %s: %w", currentPath, err)
+		}
+
+		// If the node was processed as multiline, mark it and return
+		if processed {
+			processedPaths[currentPath] = true
+			debugLog(debug, "Successfully processed multiline node at path %s", currentPath)
+			return nil
+		}
+
+		// Standard processing for regular nodes
 		processedPaths[currentPath] = true
 
 		switch operation {
