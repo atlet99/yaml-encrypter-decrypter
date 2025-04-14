@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added recursive path exclusion for `action: none` rules (all nested paths are also excluded)
 - Added detailed documentation for rule configuration in README.md
 - Added line numbers in diff output for easier identification of changes
+- Added Staticcheck static analyzer integration for improved code quality checks
+- Added Makefile commands for code quality tooling:
+  - `upgrade-deps` command for updating all dependencies to latest versions
+  - `staticcheck` command for running static analysis
+  - `check-all` command for running all code quality checks at once
 - [YED-001] New processor package with enhanced YAML processing capabilities
 - [YED-002] Extended debug logging functionality
 - [YED-003] New security features in encryption package
@@ -172,6 +177,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed base64 string validation with proper padding handling
 - Fixed error handling for invalid operations
 - Fixed tests for encrypted value validation
+- Fixed error message style in code to follow Go best practices (lowercase error strings)
 - Restored --version flag functionality
 - Fixed version information display
 - Improved version display functionality:

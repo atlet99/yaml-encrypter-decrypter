@@ -68,12 +68,12 @@ func getEncryptionKey(flagKey string, debug bool) (string, error) {
 	}
 
 	if key == "" {
-		return "", fmt.Errorf("Error: encryption key not provided")
+		return "", fmt.Errorf("error: encryption key not provided")
 	}
 
 	// Validate key length
 	if len(key) < encryption.PasswordRecommendedLength {
-		return "", fmt.Errorf("Error: encryption key must be at least %d characters long for adequate security", encryption.PasswordRecommendedLength)
+		return "", fmt.Errorf("error: encryption key must be at least %d characters long for adequate security", encryption.PasswordRecommendedLength)
 	}
 
 	return key, nil
@@ -93,7 +93,7 @@ func validateAlgorithm(algorithm string) (encryption.KeyDerivationAlgorithm, err
 	case "pbkdf2-sha512":
 		return encryption.PBKDF2SHA512Algorithm, nil
 	default:
-		return "", fmt.Errorf("Error: invalid algorithm '%s'. Valid options are: argon2id, pbkdf2-sha256, pbkdf2-sha512", algorithm)
+		return "", fmt.Errorf("error: invalid algorithm '%s'. Valid options are: argon2id, pbkdf2-sha256, pbkdf2-sha512", algorithm)
 	}
 }
 

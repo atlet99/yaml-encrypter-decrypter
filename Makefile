@@ -13,7 +13,7 @@ $(OUTPUT_DIR):
 
 # Default target
 .PHONY: default
-default: fmt vet lint build quicktest
+default: fmt vet lint staticcheck build quicktest
 
 # Build and run the application locally
 .PHONY: run
@@ -27,6 +27,15 @@ install-deps:
 	@echo "Installing dependencies..."
 	go mod tidy
 	go mod vendor
+
+# Upgrade all project dependencies to their latest versions
+.PHONY: upgrade-deps
+upgrade-deps:
+	@echo "Upgrading all dependencies to latest versions..."
+	go get -u ./...
+	go mod tidy
+	go mod vendor
+	@echo "Dependencies upgraded. Please test thoroughly before committing!"
 
 # Clean up dependencies
 .PHONY: clean-deps
@@ -83,7 +92,7 @@ test-race:
 	go test -v -race ./...
 
 # Benchmark targets
-.PHONY: benchmark benchmark-all benchmark-encryption benchmark-algorithms benchmark-argon2 benchmark-long
+.PHONY: benchmark benchmark-all benchmark-encryption benchmark-argon2 benchmark-long
 
 # Run all basic benchmarks
 benchmark:
@@ -177,9 +186,10 @@ vet:
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  default         - Run formatting, vetting, linting, build, and quick tests"
+	@echo "  default         - Run formatting, vetting, linting, staticcheck, build, and quick tests"
 	@echo "  run             - Run the application locally"
 	@echo "  install-deps    - Install project dependencies"
+	@echo "  upgrade-deps    - Upgrade all project dependencies to their latest versions"
 	@echo "  clean-deps      - Clean up vendor dependencies"
 	@echo "  build           - Build the application for the current OS/architecture"
 	@echo "  build-cross     - Build binaries for multiple platforms"
@@ -198,6 +208,12 @@ help:
 	@echo "  clean-coverage  - Clean coverage and benchmark files"
 	@echo "  fmt             - Check code formatting"
 	@echo "  vet             - Analyze code with go vet"
+	@echo "  lint            - Run golangci-lint on the codebase"
+	@echo "  install-lint    - Install golangci-lint"
+	@echo "  lint-fix        - Run golangci-lint with auto-fix"
+	@echo "  staticcheck     - Run staticcheck static analyzer on the codebase"
+	@echo "  install-staticcheck - Install staticcheck"
+	@echo "  check-all       - Run all code quality checks (lint and staticcheck)"
 	@echo "  help            - Display this help message"
 
 .PHONY: test lint lint-fix install-lint
@@ -207,10 +223,27 @@ install-lint:
 	@echo "Installing golangci-lint..."
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
+# Install staticcheck
+.PHONY: install-staticcheck
+install-staticcheck:
+	@echo "Installing staticcheck..."
+	@go install honnef.co/go/tools/cmd/staticcheck@latest
+
 # Run linter
 lint:
 	@echo "Running linter..."
 	@~/go/bin/golangci-lint run
+
+# Run staticcheck
+.PHONY: staticcheck
+staticcheck:
+	@echo "Running staticcheck..."
+	@~/go/bin/staticcheck ./...
+
+# Run all checks (linter and staticcheck)
+.PHONY: check-all
+check-all: lint staticcheck
+	@echo "All checks completed."
 
 # Run linter with auto-fix
 lint-fix:
