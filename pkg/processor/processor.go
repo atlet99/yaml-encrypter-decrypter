@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -245,19 +246,19 @@ func clearRegexCache() {
 func matchesRule(path string, rule Rule, debug bool) bool {
 	debugLog(debug, "Checking if path '%s' matches rule '%s'", path, rule.Name)
 
-	// Handle special case for block or pattern being double asterisk
-	if rule.Block == "**" || rule.Pattern == "**" {
-		debugLog(debug, "Pattern '**' matches everything")
-		return true
-	}
-
-	// Check if block matches
-	if rule.Block != "*" {
+	// Check if block matches before checking the pattern
+	if rule.Block != "*" && rule.Block != "**" {
 		// Block can be a prefix or a specific path component
 		if !strings.HasPrefix(path, rule.Block) && !strings.HasPrefix(path, rule.Block+".") {
 			debugLog(debug, "Path '%s' does not start with block '%s'", path, rule.Block)
 			return false
 		}
+	}
+
+	// Handle special case for pattern being double asterisk
+	if rule.Pattern == "**" {
+		debugLog(debug, "Pattern '**' matches everything")
+		return true
 	}
 
 	// Split path into parts
@@ -490,8 +491,19 @@ func processScalarNode(node *yaml.Node, path string, key, operation string, rule
 }
 
 // ProcessFile processes a YAML file with encryption or decryption
-func ProcessFile(filePath, key, operation string, debug bool) error {
+func ProcessFile(filePath, key, operation string, debug bool, configPath string) error {
 	debugLog(debug, "Processing file: %s", filePath)
+
+	// Convert relative configPath to absolute if needed
+	if configPath != "" && !filepath.IsAbs(configPath) {
+		absConfigPath, err := filepath.Abs(configPath)
+		if err == nil {
+			configPath = absConfigPath
+			debugLog(debug, "Using absolute config path: %s", configPath)
+		} else {
+			debugLog(debug, "Failed to get absolute path for %s: %v", configPath, err)
+		}
+	}
 
 	// Read file content
 	content, err := os.ReadFile(filePath)
@@ -500,7 +512,7 @@ func ProcessFile(filePath, key, operation string, debug bool) error {
 	}
 
 	// Load rules from config file
-	rules, _, err := loadRules(".yed_config.yml", debug)
+	rules, _, err := loadRules(configPath, debug)
 	if err != nil {
 		return fmt.Errorf("error loading rules: %w", err)
 	}
@@ -537,7 +549,22 @@ func ProcessFile(filePath, key, operation string, debug bool) error {
 }
 
 // ShowDiff shows the difference between original and processed YAML
-func ShowDiff(filePath, key, operation string, debug bool) error {
+func ShowDiff(filePath, key, operation string, debug bool, configPath string) error {
+	debugLog(debug, "[ShowDiff] Starting with config path: '%s', type: %T", configPath, configPath)
+
+	// Convert relative configPath to absolute if needed
+	if configPath != "" && !filepath.IsAbs(configPath) {
+		absConfigPath, err := filepath.Abs(configPath)
+		if err == nil {
+			configPath = absConfigPath
+			debugLog(debug, "Using absolute config path: %s", configPath)
+		} else {
+			debugLog(debug, "Failed to get absolute path for %s: %v", configPath, err)
+		}
+	}
+
+	debugLog(debug, "[ShowDiff] Using config path: %s", configPath)
+
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("error reading file: %w", err)
@@ -549,7 +576,7 @@ func ShowDiff(filePath, key, operation string, debug bool) error {
 		return fmt.Errorf("error parsing YAML: %w", err)
 	}
 
-	_, config, err := loadRules(".yed_config.yml", debug)
+	_, config, err := loadRules(configPath, debug)
 	if err != nil {
 		return fmt.Errorf("error loading rules: %w", err)
 	}
@@ -557,7 +584,7 @@ func ShowDiff(filePath, key, operation string, debug bool) error {
 	// Log unsecureDiff value for debugging purposes
 	debugLog(debug, "Loaded unsecureDiff value from config: %v", config.Encryption.UnsecureDiff)
 
-	showDiff(&node, key, operation, config.Encryption.UnsecureDiff, debug)
+	showDiff(&node, key, operation, config.Encryption.UnsecureDiff, debug, configPath)
 	return nil
 }
 
@@ -642,7 +669,18 @@ func maskNodeValues(node *yaml.Node, debug bool) *yaml.Node {
 
 // loadRules loads encryption rules from a config file
 func loadRules(configFile string, debug bool) ([]Rule, *Config, error) {
-	debugLog(debug, "Loading rules from config file: %s", configFile)
+	// Convert relative configFile to absolute if needed
+	if configFile != "" && !filepath.IsAbs(configFile) {
+		absConfigFile, err := filepath.Abs(configFile)
+		if err == nil {
+			configFile = absConfigFile
+			debugLog(debug, "Using absolute config path in LoadRules: %s", configFile)
+		} else {
+			debugLog(debug, "Failed to get absolute path for %s: %v", configFile, err)
+		}
+	}
+
+	debugLog(debug, "[loadRules] Config file is: '%s'", configFile)
 
 	// Read config file
 	content, err := os.ReadFile(configFile)
@@ -770,11 +808,13 @@ func deepCopyNode(node *yaml.Node) *yaml.Node {
 }
 
 // showDiff displays differences between original and encrypted values
-func showDiff(data *yaml.Node, key, operation string, unsecureDiff bool, debug bool) {
+func showDiff(data *yaml.Node, key, operation string, unsecureDiff bool, debug bool, configPath string) {
 	if data == nil || len(data.Content) == 0 {
 		debugLog(debug, "showDiff: data is nil or empty")
 		return
 	}
+
+	debugLog(debug, "[showDiff] Config path is: '%s', type: %T", configPath, configPath)
 
 	// Setting global variable for masking in logs
 	unsecureDiffLog = unsecureDiff
@@ -790,7 +830,7 @@ func showDiff(data *yaml.Node, key, operation string, unsecureDiff bool, debug b
 	debugLog(debug, "Encrypted data content length: %d", len(encryptedData.Content))
 
 	// Load rules
-	rules, _, err := loadRules(".yed_config.yml", debug)
+	rules, _, err := loadRules(configPath, debug)
 	if err != nil {
 		debugLog(debug, "Error loading rules: %v", err)
 		return
@@ -798,13 +838,13 @@ func showDiff(data *yaml.Node, key, operation string, unsecureDiff bool, debug b
 
 	if len(rules) == 0 {
 		debugLog(debug, "No rules defined, no encryption will be performed")
-		fmt.Println("No rules defined in .yed_config.yml, no encryption will be performed.")
+		fmt.Println("No rules defined in configuration, no encryption will be performed.")
 		return
 	}
 
 	// Process original data
 	debugLog(debug, "Processing original data")
-	processNodeForDiff(originalData.Content[0], key, operation, true, debug)
+	processNodeForDiff(originalData.Content[0], key, operation, true, debug, configPath)
 
 	// Process encrypted data
 	debugLog(debug, "Processing encrypted data")
@@ -839,7 +879,7 @@ func showDiff(data *yaml.Node, key, operation string, unsecureDiff bool, debug b
 }
 
 // processScalarNodeForDiff processes a scalar node for displaying differences
-func processScalarNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool, debug bool) {
+func processScalarNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool, debug bool, configPath string) {
 	// Mask value for debug output, but keep original value for processing
 	displayValue := node.Value
 	if isSensitiveValue(displayValue) {
@@ -890,29 +930,29 @@ func isSensitiveValue(value string) bool {
 }
 
 // processSequenceNodeForDiff processes a sequence node for displaying differences
-func processSequenceNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool, debug bool) {
+func processSequenceNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool, debug bool, configPath string) {
 	debugLog(debug, "processNodeForDiff: Processing sequence node with %d items", len(node.Content))
 	for i, child := range node.Content {
 		debugLog(debug, "processNodeForDiff: Processing sequence item %d", i)
-		processNodeForDiff(child, key, operation, isOriginal, debug)
+		processNodeForDiff(child, key, operation, isOriginal, debug, configPath)
 	}
 }
 
 // processMappingNodeForDiff processes a mapping node for displaying differences
-func processMappingNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool, debug bool) {
+func processMappingNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool, debug bool, configPath string) {
 	debugLog(debug, "processNodeForDiff: Processing mapping node with %d pairs", len(node.Content)/KeyValuePairSize)
 	for i := 0; i < len(node.Content); i += 2 {
 		if i+1 < len(node.Content) {
 			keyNode := node.Content[i]
 			valueNode := node.Content[i+1]
 			debugLog(debug, "processNodeForDiff: Processing mapping pair with key: '%s'", keyNode.Value)
-			processNodeForDiff(valueNode, key, operation, isOriginal, debug)
+			processNodeForDiff(valueNode, key, operation, isOriginal, debug, configPath)
 		}
 	}
 }
 
 // processNodeForDiff processes a node for displaying differences
-func processNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool, debug bool) {
+func processNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool, debug bool, configPath string) {
 	if node == nil {
 		debugLog(debug, "processNodeForDiff: received nil node")
 		return
@@ -922,11 +962,11 @@ func processNodeForDiff(node *yaml.Node, key, operation string, isOriginal bool,
 
 	switch node.Kind {
 	case yaml.ScalarNode:
-		processScalarNodeForDiff(node, key, operation, isOriginal, debug)
+		processScalarNodeForDiff(node, key, operation, isOriginal, debug, configPath)
 	case yaml.SequenceNode:
-		processSequenceNodeForDiff(node, key, operation, isOriginal, debug)
+		processSequenceNodeForDiff(node, key, operation, isOriginal, debug, configPath)
 	case yaml.MappingNode:
-		processMappingNodeForDiff(node, key, operation, isOriginal, debug)
+		processMappingNodeForDiff(node, key, operation, isOriginal, debug, configPath)
 	default:
 		debugLog(debug, "processNodeForDiff: Unsupported node kind: %v", node.Kind)
 	}
@@ -1052,6 +1092,26 @@ func markExcludedPaths(node *yaml.Node, rule Rule, currentPath string, excludedP
 		return nil
 	}
 
+	// Check if block matches before checking the pattern
+	if currentPath != "" {
+		// Check if block matches
+		blockMatches := false
+		if rule.Block == "*" || rule.Block == "**" {
+			blockMatches = true
+		} else {
+			// Check if path starts with block or is exact match
+			// For example, for block "axel.fix" path "axel.fix.username" should match
+			blockMatches = currentPath == rule.Block ||
+				strings.HasPrefix(currentPath, rule.Block+".") ||
+				(strings.Contains(rule.Block, ".") && strings.HasPrefix(currentPath, rule.Block))
+		}
+
+		if blockMatches && (rule.Pattern == "**" || matchesPattern(currentPath, rule.Pattern, debug)) {
+			debugLog(debug, "Marking path for exclusion: %s", currentPath)
+			excludedPaths[currentPath] = true
+		}
+	}
+
 	switch node.Kind {
 	case yaml.MappingNode:
 		return markExcludedPathsMapping(node, rule, currentPath, excludedPaths, debug)
@@ -1076,11 +1136,6 @@ func markExcludedPathsMapping(node *yaml.Node, rule Rule, currentPath string, ex
 			newPath = keyNode.Value
 		} else {
 			newPath = currentPath + "." + keyNode.Value
-		}
-
-		if matchesRule(newPath, rule, debug) {
-			debugLog(debug, "Marking path for exclusion: %s", newPath)
-			excludedPaths[newPath] = true
 		}
 
 		if err := markExcludedPaths(valueNode, rule, newPath, excludedPaths, debug); err != nil {
@@ -1215,6 +1270,17 @@ func processScalarNodeWithExclusions(node *yaml.Node, key, operation string, rul
 
 // LoadRules loads encryption rules from a config file
 func LoadRules(configFile string, debug bool) ([]Rule, *Config, error) {
+	// Convert relative configFile to absolute if needed
+	if configFile != "" && !filepath.IsAbs(configFile) {
+		absConfigFile, err := filepath.Abs(configFile)
+		if err == nil {
+			configFile = absConfigFile
+			debugLog(debug, "Using absolute config path in LoadRules: %s", configFile)
+		} else {
+			debugLog(debug, "Failed to get absolute path for %s: %v", configFile, err)
+		}
+	}
+
 	debugLog(debug, "Loading rules from config file: %s", configFile)
 
 	// Read config file

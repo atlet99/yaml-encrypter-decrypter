@@ -21,6 +21,7 @@ type appFlags struct {
 	algorithm   string
 	benchmark   bool
 	benchFile   string
+	configPath  string
 }
 
 // parseFlags parses command line arguments and returns an appFlags struct
@@ -35,6 +36,7 @@ func parseFlags() appFlags {
 	algorithm := flag.String("algorithm", "", "Key derivation algorithm to use (argon2id, pbkdf2-sha256, pbkdf2-sha512)")
 	benchmark := flag.Bool("benchmark", false, "Run performance benchmarks")
 	benchFile := flag.String("bench-file", "", "Path to save benchmark results (default: stdout)")
+	configPath := flag.String("config", "", "Path to the .yed_config.yml file (default: .yed_config.yml in current directory)")
 	flag.Parse()
 
 	return appFlags{
@@ -48,6 +50,7 @@ func parseFlags() appFlags {
 		algorithm:   *algorithm,
 		benchmark:   *benchmark,
 		benchFile:   *benchFile,
+		configPath:  *configPath,
 	}
 }
 

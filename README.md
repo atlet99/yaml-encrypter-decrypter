@@ -22,6 +22,10 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 - Secure memory handling with memguard to protect sensitive data in memory.
 - HMAC for validating data integrity.
 - Compression using gzip to optimize data storage.
+- Improved rule matching logic:
+  - Proper block-first path evaluation for more accurate rule application
+  - Precise control over which paths should be excluded from encryption
+  - Fix for global pattern matching to respect block specifications
 - Supports cross-platform builds (Linux, macOS, Windows).
 - Comprehensive Makefile for building, testing, and running the project.
 - Enhanced validation of encrypted data and base64 strings.
@@ -306,7 +310,12 @@ make build
 
 ### **Configuration**
 
-The tool uses a `.yed_config.yml` file for customizable behavior. Place this file in the working directory.
+The tool uses a `.yed_config.yml` file for customizable behavior. By default, this file should be placed in the working directory. You can specify a custom path to the configuration file using the `--config` flag.
+
+**Example usage with custom config path:**
+```bash
+./bin/yed --file config.yaml --key="my-super-secure-key" --operation encrypt --config /path/to/custom/.yed_config.yml
+```
 
 **Example `.yed_config.yml`:**
 ```yaml
@@ -384,6 +393,19 @@ export YED_ENCRYPTION_KEY="my-super-secure-key"
 ### **Command-Line Interface**
 
 *The tool provides various options to encrypt and decrypt data:*
+
+**Available Flags:**
+- `--file` - Path to the YAML file to process
+- `--key` - Encryption/decryption key (can also be set via YED_ENCRYPTION_KEY env variable)
+- `--operation` - Operation to perform (encrypt/decrypt)
+- `--dry-run` - Print the result without modifying the file
+- `--diff` - Show differences between original and encrypted values
+- `--debug` - Enable debug logging
+- `--config` - Path to the .yed_config.yml file (default: .yed_config.yml in current directory)
+- `--algorithm` - Key derivation algorithm to use (argon2id, pbkdf2-sha256, pbkdf2-sha512)
+- `--version` - Show version information
+- `--benchmark` - Run performance benchmarks
+- `--bench-file` - Path to save benchmark results (default: stdout)
 
 **Encrypt a Single Value**
 ```bash

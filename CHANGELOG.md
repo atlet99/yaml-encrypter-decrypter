@@ -75,6 +75,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated build targets to correctly include all source files
   - Changed build commands to target directories instead of individual files
   - Ensured proper compilation across all platforms
+- Added staticcheck integration for static code analysis
+- Added new Makefile commands:
+  - `upgrade-deps` to upgrade all dependencies
+  - `staticcheck` to run static analysis
+  - `check-all` to run all code quality checks
+- Added `--config` flag to specify custom path to configuration file
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -189,6 +195,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Corrected table structure for proper rendering in Markdown
   - Fixed alignment of content in report columns
   - Improved algorithm name formatting in reports
+- Fixed rule matching logic in `matchesRule` function:
+  - Fixed an issue where rules with pattern "**" would match all paths regardless of the block value
+  - Changed the pattern for skip_axel_fix rule from "**" to "*" to properly limit its scope to only the specified block
+  - Improved check order to ensure block matching is performed before pattern matching
 
 ### Removed
 - Removed deprecated tests from encryption and processor packages

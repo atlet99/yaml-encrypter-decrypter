@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/atlet99/yaml-encrypter-decrypter/pkg/encryption"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -92,7 +93,17 @@ func TestEncryptDecryptMultiline(t *testing.T) {
 	}
 
 	// Test decryption
-	err = DecryptMultiline(node, testKey, originalStyle, false)
+	err = DecryptMultiline(node, func(value string) (string, error) {
+		// Decrypt the value
+		decryptedBuffer, err := encryption.Decrypt(testKey, strings.TrimPrefix(value, AES))
+		if err != nil {
+			return "", err
+		}
+		defer decryptedBuffer.Destroy() // Clean up the protected buffer
+
+		// Return the decrypted value
+		return string(decryptedBuffer.Bytes()), nil
+	})
 	if err != nil {
 		t.Fatalf("DecryptMultiline() error = %v", err)
 	}
@@ -202,7 +213,17 @@ func TestDecryptMultilinePreservesPEMFormat(t *testing.T) {
 	assert.True(t, strings.HasPrefix(node.Value, AES))
 
 	// Call DecryptMultiline directly
-	err = DecryptMultiline(node, testKey, yaml.DoubleQuotedStyle, true)
+	err = DecryptMultiline(node, func(value string) (string, error) {
+		// Decrypt the value
+		decryptedBuffer, err := encryption.Decrypt(testKey, strings.TrimPrefix(value, AES))
+		if err != nil {
+			return "", err
+		}
+		defer decryptedBuffer.Destroy() // Clean up the protected buffer
+
+		// Return the decrypted value
+		return string(decryptedBuffer.Bytes()), nil
+	})
 	assert.NoError(t, err)
 
 	// Check that the format is preserved
@@ -295,7 +316,17 @@ func TestDecryptCertificatesPreservesFormat(t *testing.T) {
 			assert.True(t, strings.HasPrefix(node.Value, AES))
 
 			// Decrypt
-			err = DecryptMultiline(node, testKey, yaml.DoubleQuotedStyle, true)
+			err = DecryptMultiline(node, func(value string) (string, error) {
+				// Decrypt the value
+				decryptedBuffer, err := encryption.Decrypt(testKey, strings.TrimPrefix(value, AES))
+				if err != nil {
+					return "", err
+				}
+				defer decryptedBuffer.Destroy() // Clean up the protected buffer
+
+				// Return the decrypted value
+				return string(decryptedBuffer.Bytes()), nil
+			})
 			assert.NoError(t, err)
 
 			// Check that the format is preserved

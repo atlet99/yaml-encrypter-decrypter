@@ -254,7 +254,7 @@ func BenchmarkProcessFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err := ProcessFile(tmpfile.Name(), "test-key-12345678", "encrypt", false)
+		err := ProcessFile(tmpfile.Name(), "test-key-12345678", "encrypt", false, ".yed_config.yml")
 		if err != nil {
 			b.Fatalf("ProcessFile failed: %v", err)
 		}
@@ -1322,7 +1322,7 @@ func ProcessFileHelper(filename, key, operation string, debug bool) error {
 	processedPaths := make(map[string]bool)
 
 	// Process YAML content
-	node, err := processYAMLContent(content, key, operation, rules, processedPaths, debug)
+	node, err := ProcessYAMLContent(content, key, operation, rules, processedPaths, debug)
 	if err != nil {
 		return fmt.Errorf("error processing YAML content: %w", err)
 	}
