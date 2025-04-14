@@ -41,6 +41,8 @@ debug/
 .yed*
 !.test/.yed_config.yml
 .test/**/*.bak
+pkg/processor/testdata/**/*.bak
+!pkg/processor/testdata/.yed_config.yml
 
 # OS specific
 .DS_Store

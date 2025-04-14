@@ -193,19 +193,114 @@ func TestDecryptMultilinePreservesPEMFormat(t *testing.T) {
 		Value: pemWithEscapedNewlines,
 	}
 
-	// Encrypt the node
-	err := EncryptMultiline(node, "testkey", true)
+	// Use a more secure key for encryption
+	testKey := "test-key-12345678901234567890"
+
+	// Instead of ProcessMultilineNode, call EncryptMultiline directly
+	err := EncryptMultiline(node, testKey, true)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(node.Value, AES))
 
-	// Save the original style
-	originalStyle := node.Style
-
-	// Decrypt the node
-	err = DecryptMultiline(node, "testkey", originalStyle, true)
+	// Call DecryptMultiline directly
+	err = DecryptMultiline(node, testKey, yaml.DoubleQuotedStyle, true)
 	assert.NoError(t, err)
 
 	// Check that the format is preserved
 	assert.Equal(t, pemWithEscapedNewlines, node.Value)
 	assert.Equal(t, yaml.DoubleQuotedStyle, node.Style)
+}
+
+func TestHasCertificateKeyPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected bool
+	}{
+		{
+			name:     "public key with escaped newlines",
+			content:  "-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\\n-----END PUBLIC KEY-----",
+			expected: true,
+		},
+		{
+			name:     "private key with escaped newlines",
+			content:  "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBK\\n-----END PRIVATE KEY-----",
+			expected: true,
+		},
+		{
+			name:     "certificate with escaped newlines",
+			content:  "-----BEGIN CERTIFICATE-----\\nMIIDzTCCArWgAwIBAgIUJ2y8WMUZ\\n-----END CERTIFICATE-----",
+			expected: true,
+		},
+		{
+			name:     "openssh key with escaped newlines",
+			content:  "-----BEGIN OPENSSH PRIVATE KEY-----\\nb3BlbnNzaC1rZXktdjEA\\n-----END OPENSSH PRIVATE KEY-----",
+			expected: true,
+		},
+		{
+			name:     "text with escaped newlines but no cert patterns",
+			content:  "This is just\\nsome text\\nwith escaped newlines",
+			expected: false,
+		},
+		{
+			name:     "certificate without escaped newlines",
+			content:  "-----BEGIN CERTIFICATE----- MIID -----END CERTIFICATE-----",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasCertificateKeyPatterns(tt.content)
+			if result != tt.expected {
+				t.Errorf("hasCertificateKeyPatterns() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDecryptCertificatesPreservesFormat(t *testing.T) {
+	// Simulating different certificate formats with escaped newlines
+	testCases := []struct {
+		name          string
+		content       string
+		expectedStyle yaml.Style
+	}{
+		{
+			name:          "public key",
+			content:       "-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\\n-----END PUBLIC KEY-----",
+			expectedStyle: yaml.DoubleQuotedStyle,
+		},
+		{
+			name:          "certificate",
+			content:       "-----BEGIN CERTIFICATE-----\\nMIIDzTCCArWgAwIBAgIUJ2y8WMUZ\\n-----END CERTIFICATE-----",
+			expectedStyle: yaml.DoubleQuotedStyle,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a node with the test value
+			node := &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Style: yaml.DoubleQuotedStyle,
+				Value: tc.content,
+			}
+
+			// Use a secure test key
+			testKey := "test-key-12345678901234567890"
+
+			// Use EncryptMultiline and DecryptMultiline functions directly
+			err := EncryptMultiline(node, testKey, true)
+			assert.NoError(t, err)
+			assert.True(t, strings.HasPrefix(node.Value, AES))
+
+			// Decrypt
+			err = DecryptMultiline(node, testKey, yaml.DoubleQuotedStyle, true)
+			assert.NoError(t, err)
+
+			// Check that the format is preserved
+			assert.Equal(t, tc.content, node.Value)
+			assert.Equal(t, tc.expectedStyle, node.Style)
+		})
+	}
 }

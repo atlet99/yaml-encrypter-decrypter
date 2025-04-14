@@ -1,0 +1,24 @@
+---
+encryption:
+  rules:
+    - name: "Encrypt all passwords"
+      block: "smart_config"
+      pattern: "**password**"
+      description: "Encrypt all password fields in smart_config block"
+    
+    - name: "Encrypt API keys"
+      block: "secrets"
+      pattern: "api_key"
+      description: "Encrypt API keys in secrets block"
+
+    - name: "Encrypt private keys"
+      block: "secrets"
+      pattern: "private_key"
+      description: "Encrypt private keys in secrets block"
+      
+    - name: "Encrypt all certificates and keys"
+      block: "certificates"
+      pattern: "**"
+      description: "Encrypt all certificate and key fields in certificates block"
+
+  unsecure_diff: false 

@@ -245,27 +245,33 @@ func clearRegexCache() {
 func matchesRule(path string, rule Rule, debug bool) bool {
 	debugLog(debug, "Checking if path '%s' matches rule '%s'", path, rule.Name)
 
-	// Split path into parts
-	parts := strings.Split(path, ".")
+	// Handle special case for block or pattern being double asterisk
+	if rule.Block == "**" || rule.Pattern == "**" {
+		debugLog(debug, "Pattern '**' matches everything")
+		return true
+	}
 
-	// Check if path starts with the block
-	if rule.Block != "*" && rule.Block != "**" {
-		if !strings.HasPrefix(path, rule.Block) {
+	// Check if block matches
+	if rule.Block != "*" {
+		// Block can be a prefix or a specific path component
+		if !strings.HasPrefix(path, rule.Block) && !strings.HasPrefix(path, rule.Block+".") {
 			debugLog(debug, "Path '%s' does not start with block '%s'", path, rule.Block)
 			return false
 		}
 	}
 
-	// For pattern matching, we should check the last part of the path
-	lastPart := parts[len(parts)-1]
+	// Split path into parts
+	parts := strings.Split(path, ".")
 
-	// Handle special case for double asterisk pattern
-	if rule.Pattern == "**" {
-		debugLog(debug, "Pattern '**' matches everything")
-		return true
+	// For empty path, only match wildcard patterns
+	if path == "" {
+		return rule.Pattern == "*" || rule.Pattern == "**"
 	}
 
-	// Check if last part matches pattern
+	// Handle pattern matching on the last part of the path
+	lastPart := parts[len(parts)-1]
+
+	// Check if pattern matches the last part
 	if !matchesPattern(lastPart, rule.Pattern, debug) {
 		debugLog(debug, "Last part '%s' does not match pattern '%s'", lastPart, rule.Pattern)
 		return false
@@ -330,8 +336,8 @@ func wildcardToRegex(pattern string) string {
 	// Replace ** with .* for recursive search
 	pattern = strings.ReplaceAll(pattern, "\\*\\*", ".*")
 
-	// Replace * with [^.]* for single level search
-	pattern = strings.ReplaceAll(pattern, "\\*", "[^.]*")
+	// Replace * with .* for single level search (changed from [^.]*)
+	pattern = strings.ReplaceAll(pattern, "\\*", ".*")
 
 	// Add start and end of string
 	return "^" + pattern + "$"
@@ -693,16 +699,27 @@ func ProcessNode(node *yaml.Node, path, key, operation string, rules []Rule, pro
 		return nil
 	}
 
+	// Check for valid operation
+	if operation != OperationEncrypt && operation != OperationDecrypt {
+		return fmt.Errorf("invalid operation: %s", operation)
+	}
+
+	debugLog(debug, "Processing node at path: %s", path)
+
 	switch node.Kind {
+	case yaml.DocumentNode:
+		if len(node.Content) > 0 {
+			return processNode(node.Content[0], path, key, operation, rules, processedPaths, debug)
+		}
 	case yaml.MappingNode:
 		return processMappingNode(node, path, key, operation, rules, processedPaths, debug)
 	case yaml.SequenceNode:
 		return processSequenceNode(node, path, key, operation, rules, processedPaths, debug)
 	case yaml.ScalarNode:
 		return processScalarNode(node, path, key, operation, rules, processedPaths, debug)
-	default:
-		return nil
 	}
+
+	return nil
 }
 
 // EvaluateCondition evaluates a condition with caching

@@ -24,6 +24,24 @@ encryption:
       block: "ssh"
       pattern: "string_key"
       description: "Encrypt string SSH key"
+    
+    # Rules for certificate encryption  
+    - name: "public_key_rule"
+      block: "certificates"
+      pattern: "public_key"
+      description: "Encrypt public key in PEM format"
+    - name: "certificate_chain_rule"
+      block: "certificates"
+      pattern: "certificate_chain"
+      description: "Encrypt certificate chain in PEM format"
+    - name: "openssh_key_rule"
+      block: "certificates"
+      pattern: "openssh_key"
+      description: "Encrypt OpenSSH private key"
+    - name: "quoted_public_key_rule"
+      block: "certificates"
+      pattern: "quoted_public_key"
+      description: "Encrypt quoted public key with escaped newlines"
       
     # Rules from main config
     - name: "skip_axel_fix"
