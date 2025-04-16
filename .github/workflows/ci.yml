@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     name: Build and Push Docker Image
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2.10.2
