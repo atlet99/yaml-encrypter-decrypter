@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -1176,52 +1177,62 @@ func TestProcessNodeWithBuffer(t *testing.T) {
 }
 
 func TestParallelProcessing(t *testing.T) {
-	tests := []struct {
-		name      string
-		filename  string
-		key       string
-		operation string
-		debug     bool
-		wantError bool
-	}{
-		{
-			name:      "parallel_processing",
-			filename:  "testdata/test.yml",
-			key:       "test-key-123456789012345",
-			operation: "encrypt",
-			debug:     false,
-			wantError: false,
-		},
+	// Create temporary directory for test files
+	tempDir, err := os.MkdirTemp("", "test-parallel")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Define number of workers
+	workers := 5
+
+	// Define a test file and key for processing
+	testFile := filepath.Join(tempDir, "test_parallel.yml")
+	configFile := filepath.Join(tempDir, ".yed_config.yml")
+	testKey := "test-key-12345678901234567890"
+
+	// Create test content
+	testContent := `
+test:
+  key1: value1
+  key2: value2
+`
+	// Create config content
+	configContent := `
+rules:
+  - name: "Test rule"
+    block: "test"
+    pattern: "**"
+    description: "Test rule for parallel processing"
+`
+	// Write test file
+	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var wg sync.WaitGroup
-			errChan := make(chan error, 10)
-
-			// Run multiple goroutines
-			for i := 0; i < 10; i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					if err := ProcessFileHelper(tt.filename, tt.key, tt.operation, tt.debug); err != nil {
-						errChan <- err
-					}
-				}()
-			}
-
-			// Wait for all goroutines to complete
-			wg.Wait()
-			close(errChan)
-
-			// Check for errors
-			for err := range errChan {
-				if (err != nil) != tt.wantError {
-					t.Errorf("ProcessFile() error = %v, wantError %v", err, tt.wantError)
-				}
-			}
-		})
+	// Write config file
+	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
 	}
+
+	// Create a wait group to coordinate goroutines
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	// Start parallel processing
+	for i := 0; i < workers; i++ {
+		go func(id int) {
+			defer wg.Done()
+			err := ProcessFile(testFile, testKey, OperationEncrypt, false, configFile)
+			if err != nil {
+				t.Errorf("ProcessFile() error = %v, wantError %v", err, false)
+			}
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
 }
 
 func TestProcessNodeWithRules(t *testing.T) {

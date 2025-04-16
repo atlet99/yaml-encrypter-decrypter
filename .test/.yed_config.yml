@@ -56,4 +56,30 @@ encryption:
     - name: "encrypt_passwords"
       block: "*"
       pattern: "pass*"
-      description: "Encrypt all password fields globally" 
+      description: "Encrypt all password fields globally"
+
+    - name: "nginx_config"
+      block: "nginx"
+      pattern: "**"
+      description: "Encrypt nginx configuration blocks"
+
+    - name: "apache_config"
+      block: "apache"
+      pattern: "**"
+      description: "Encrypt apache configuration blocks"
+
+    - name: "haproxy_config"
+      block: "haproxy"
+      pattern: "**"
+      description: "Encrypt haproxy configuration blocks"
+
+    - name: "certificates"
+      block: "certificates"
+      pattern: "**"
+      description: "Encrypt all certificate data"
+
+    - name: "skip_comments"
+      block: "*"
+      pattern: "**"
+      exclude: "#*"
+      description: "Skip comments in all blocks" 

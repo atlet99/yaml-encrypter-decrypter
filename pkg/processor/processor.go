@@ -49,6 +49,13 @@ const (
 
 	// AlgorithmIndicatorLength is the length of the algorithm indicator
 	AlgorithmIndicatorLength = 16
+
+	// Additional YAML node style names (for style suffixes)
+	StyleLiteral      = "literal"
+	StyleFolded       = "folded"
+	StyleDoubleQuoted = "double_quoted"
+	StyleSingleQuoted = "single_quoted"
+	StylePlain        = "plain"
 )
 
 // CurrentKeyDerivationAlgorithm is the algorithm to use for encryption
@@ -425,68 +432,147 @@ func processSequenceNode(node *yaml.Node, path string, key, operation string, ru
 }
 
 func processScalarNode(node *yaml.Node, path string, key, operation string, rules []Rule, processedPaths map[string]bool, debug bool) error {
+	debugLog(debug, "Processing scalar node at path: %s", path)
+
+	// Skip if this path is already processed
 	if processedPaths[path] {
+		debugLog(debug, "Node at path %s already processed", path)
 		return nil
 	}
 
-	ruleName, shouldProcess := processRules(path, rules, debug)
-	if !shouldProcess {
-		debugLog(debug, "Skipping path %s due to rules", path)
-		return nil
-	}
-
-	// Process multiline nodes first
+	// First, try to handle multiline node specially
 	processed, err := ProcessMultilineNode(node, path, key, operation, debug)
 	if err != nil {
-		return fmt.Errorf("failed to process multiline node at path %s: %w", path, err)
+		return err
 	}
 
-	// If the node was processed as multiline, mark it and return
 	if processed {
+		// Mark as processed
 		processedPaths[path] = true
-		debugLog(debug, "Successfully processed multiline node at path %s with rule %s", path, ruleName)
 		return nil
 	}
 
-	// Standard processing for non-multiline nodes
-	if shouldProcess {
-		debugLog(debug, "Processing path %s with rule %s", path, ruleName)
-		processedPaths[path] = true
+	// If not processed as multiline, continue with standard scalar node handling
+	debugLog(debug, "Processing scalar node as standard at path: %s", path)
 
-		switch operation {
-		case OperationEncrypt:
-			if !strings.HasPrefix(node.Value, AES) {
-				encrypted, err := encryption.Encrypt(key, node.Value)
-				if err != nil {
-					return fmt.Errorf("failed to encrypt value at path %s: %w", path, err)
-				}
-				node.Value = AES + encrypted
-			}
-		case OperationDecrypt:
-			if strings.HasPrefix(node.Value, AES) {
-				debugLog(debug, "Processing encrypted node with value: %s", maskEncryptedValue(node.Value, debug, path))
-
-				// Decrypt value
-				decryptedBuffer, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
-				if err != nil {
-					debugLog(debug, "Error decrypting value: %v", err)
-					return err
-				}
-				defer decryptedBuffer.Destroy() // Clean up the protected buffer
-
-				// Set decrypted value
-				decrypted := string(decryptedBuffer.Bytes())
-				debugLog(debug, "Decrypted value: %s", decrypted)
-				node.Value = decrypted
-
-				// Mark path as processed
-				if processedPaths != nil {
-					processedPaths[path] = true
-				}
-			}
-		}
+	// Get rule to apply
+	ruleName, canApply := processRules(path, rules, debug)
+	if !canApply {
+		debugLog(debug, "No rules apply to path: %s", path)
+		return nil
 	}
 
+	debugLog(debug, "Path %s matches rule %s for encryption", path, ruleName)
+
+	// Skip processing if value is empty
+	if node.Value == "" {
+		debugLog(debug, "Skipping empty value at path: %s", path)
+		return nil
+	}
+
+	// Process based on operation
+	if operation == OperationEncrypt {
+		if strings.HasPrefix(node.Value, AES) {
+			debugLog(debug, "Value at path %s is already encrypted", path)
+			return nil
+		}
+
+		// Save the current value before encryption
+		originalValue := node.Value
+
+		// Save original style
+		originalStyle := node.Style
+
+		// Store original style information as a suffix
+		var styleSuffix string
+		switch originalStyle {
+		case yaml.LiteralStyle:
+			styleSuffix = "|" + StyleLiteral
+		case yaml.FoldedStyle:
+			styleSuffix = "|" + StyleFolded
+		case yaml.DoubleQuotedStyle:
+			styleSuffix = "|" + StyleDoubleQuoted
+		case yaml.SingleQuotedStyle:
+			styleSuffix = "|" + StyleSingleQuoted
+		default:
+			styleSuffix = "|" + StylePlain
+		}
+
+		encryptedValue, err := encryption.Encrypt(key, originalValue)
+		if err != nil {
+			return fmt.Errorf("error encrypting value at path %s: %w", path, err)
+		}
+
+		// Set the value with style information
+		node.Value = AES + encryptedValue + styleSuffix
+
+		// Reset style to plain for encrypted values
+		node.Style = 0
+
+		// If node had a tag that should be removed upon encryption, do so
+		if node.Tag == "!!int" {
+			node.Tag = ""
+		}
+
+		debugLog(debug, "Value at path %s encrypted with style suffix %s", path, styleSuffix)
+	} else if operation == OperationDecrypt {
+		if !strings.HasPrefix(node.Value, AES) {
+			debugLog(debug, "Value at path %s is not encrypted", path)
+			return nil
+		}
+
+		// Extract the encrypted value (skipping the AES marker) and handle style suffix
+		encrypted := strings.TrimPrefix(node.Value, AES)
+
+		// Extract style suffix if present - find the last pipe character that might be in the encrypted value
+		lastPipeIndex := strings.LastIndex(encrypted, "|")
+		styleSuffix := ""
+		styleInfo := yaml.Style(0) // Default plain style
+
+		if lastPipeIndex != -1 && lastPipeIndex < len(encrypted)-1 {
+			styleSuffix = encrypted[lastPipeIndex+1:]
+			encrypted = encrypted[:lastPipeIndex]
+
+			// Convert style suffix to yaml.Style
+			switch styleSuffix {
+			case StyleLiteral:
+				styleInfo = yaml.LiteralStyle
+			case StyleFolded:
+				styleInfo = yaml.FoldedStyle
+			case StyleDoubleQuoted:
+				styleInfo = yaml.DoubleQuotedStyle
+			case StyleSingleQuoted:
+				styleInfo = yaml.SingleQuotedStyle
+			}
+
+			debugLog(debug, "Found style suffix: %s, setting style to: %d", styleSuffix, styleInfo)
+		}
+
+		// Decrypt the value
+		decryptedBuffer, err := encryption.Decrypt(key, encrypted)
+		if err != nil {
+			return fmt.Errorf("error decrypting value at path %s: %w", path, err)
+		}
+		defer decryptedBuffer.Destroy()
+
+		node.Value = string(decryptedBuffer.Bytes())
+
+		// Apply appropriate style based on suffix and content
+		if styleSuffix != "" {
+			// If we have style info from suffix, use that
+			node.Style = styleInfo
+			debugLog(debug, "Applied style from suffix: %s -> %d", styleSuffix, styleInfo)
+		} else if strings.Contains(node.Value, "\n") {
+			// For multiline content, use literal style by default
+			node.Style = yaml.LiteralStyle
+			debugLog(debug, "Applied literal style for multiline content")
+		}
+
+		debugLog(debug, "Value at path %s decrypted with style %d", path, node.Style)
+	}
+
+	// Mark as processed
+	processedPaths[path] = true
 	return nil
 }
 
@@ -1234,38 +1320,130 @@ func processScalarNodeWithExclusions(node *yaml.Node, key, operation string, rul
 
 		switch operation {
 		case OperationEncrypt:
-			if !strings.HasPrefix(node.Value, AES) {
-				encrypted, err := encryption.Encrypt(key, node.Value)
-				if err != nil {
-					return fmt.Errorf("failed to encrypt value at path %s: %w", currentPath, err)
-				}
-				node.Value = AES + encrypted
-			}
+			return processEncryptionWithExclusions(node, key, currentPath, debug)
 		case OperationDecrypt:
-			if strings.HasPrefix(node.Value, AES) {
-				debugLog(debug, "Processing encrypted node with value: %s", maskEncryptedValue(node.Value, debug, currentPath))
-
-				// Decrypt value
-				decryptedBuffer, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
-				if err != nil {
-					debugLog(debug, "Error decrypting value: %v", err)
-					return err
-				}
-				defer decryptedBuffer.Destroy() // Clean up the protected buffer
-
-				// Set decrypted value
-				decrypted := string(decryptedBuffer.Bytes())
-				debugLog(debug, "Decrypted value: %s", decrypted)
-				node.Value = decrypted
-
-				// Mark path as processed
-				if processedPaths != nil {
-					processedPaths[currentPath] = true
-				}
-			}
+			return processDecryptionWithExclusions(node, key, currentPath, processedPaths, debug)
 		}
 	}
 	return nil
+}
+
+// processEncryptionWithExclusions handles encryption for scalar nodes with exclusions
+func processEncryptionWithExclusions(node *yaml.Node, key, currentPath string, debug bool) error {
+	if !strings.HasPrefix(node.Value, AES) {
+		// Save style information
+		styleSuffix := getStyleSuffix(node.Style)
+
+		// Save the current value before encryption
+		originalValue := node.Value
+
+		encrypted, err := encryption.Encrypt(key, originalValue)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt value at path %s: %w", currentPath, err)
+		}
+
+		// Add style suffix to the encrypted value
+		node.Value = AES + encrypted + styleSuffix
+
+		// Reset style to plain for encrypted values
+		node.Style = 0
+	}
+	return nil
+}
+
+// getStyleSuffix returns the appropriate style suffix for a given YAML style
+func getStyleSuffix(style yaml.Style) string {
+	switch style {
+	case yaml.LiteralStyle:
+		return "|" + StyleLiteral
+	case yaml.FoldedStyle:
+		return "|" + StyleFolded
+	case yaml.DoubleQuotedStyle:
+		return "|" + StyleDoubleQuoted
+	case yaml.SingleQuotedStyle:
+		return "|" + StyleSingleQuoted
+	default:
+		return "|" + StylePlain
+	}
+}
+
+// processDecryptionWithExclusions handles decryption for scalar nodes with exclusions
+func processDecryptionWithExclusions(node *yaml.Node, key, currentPath string, processedPaths map[string]bool, debug bool) error {
+	if strings.HasPrefix(node.Value, AES) {
+		debugLog(debug, "Processing encrypted node with value: %s", maskEncryptedValue(node.Value, debug, currentPath))
+
+		// Extract the encrypted value (skipping the AES marker) and handle style suffix
+		encrypted := strings.TrimPrefix(node.Value, AES)
+
+		// Extract style suffix if present - find the last pipe character that might be in the encrypted value
+		lastPipeIndex := strings.LastIndex(encrypted, "|")
+		styleSuffix := ""
+		styleInfo := yaml.Style(0) // Default plain style
+
+		if lastPipeIndex != -1 && lastPipeIndex < len(encrypted)-1 {
+			styleSuffix = encrypted[lastPipeIndex+1:]
+			encrypted = encrypted[:lastPipeIndex]
+
+			// Convert style suffix to yaml.Style
+			switch styleSuffix {
+			case StyleLiteral:
+				styleInfo = yaml.LiteralStyle
+			case StyleFolded:
+				styleInfo = yaml.FoldedStyle
+			case StyleDoubleQuoted:
+				styleInfo = yaml.DoubleQuotedStyle
+			case StyleSingleQuoted:
+				styleInfo = yaml.SingleQuotedStyle
+			}
+
+			debugLog(debug, "Found style suffix: %s, setting style to: %d", styleSuffix, styleInfo)
+		}
+
+		// Decrypt the value
+		decryptedValue, err := decryptNodeValue(encrypted, key, debug)
+		if err != nil {
+			return err
+		}
+
+		// Set the decrypted value and apply style
+		node.Value = decryptedValue
+		applyNodeStyle(node, styleInfo, debug)
+
+		// Mark path as processed
+		if processedPaths != nil {
+			processedPaths[currentPath] = true
+		}
+	}
+	return nil
+}
+
+// decryptNodeValue decrypts a node value
+func decryptNodeValue(encrypted, key string, debug bool) (string, error) {
+	decryptedBuffer, err := encryption.Decrypt(key, encrypted)
+	if err != nil {
+		debugLog(debug, "Error decrypting value: %v", err)
+		return "", err
+	}
+	defer decryptedBuffer.Destroy() // Clean up the protected buffer
+
+	// Set decrypted value
+	decrypted := string(decryptedBuffer.Bytes())
+	debugLog(debug, "Decrypted value: %s", decrypted)
+
+	return decrypted, nil
+}
+
+// applyNodeStyle applies the appropriate style to a node
+func applyNodeStyle(node *yaml.Node, styleInfo yaml.Style, debug bool) {
+	if styleInfo != 0 {
+		// If we have style info from suffix, use that
+		node.Style = styleInfo
+		debugLog(debug, "Applied style from suffix to style: %d", styleInfo)
+	} else if strings.Contains(node.Value, "\n") {
+		// For multiline content, use literal style by default
+		node.Style = yaml.LiteralStyle
+		debugLog(debug, "Applied literal style for multiline content")
+	}
 }
 
 // LoadRules loads encryption rules from a config file

@@ -40,15 +40,28 @@ jobs:
       - name: Get repo name
         id: repo_vars
         run: echo "GH_REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+        
+      - name: Read release version
+        id: version_file
+        run: |
+          TAG_NAME=$(head -n 1 .release-version 2>/dev/null || echo "v0.0.0")
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          VERSION_RAW=$(tail -n 1 .release-version 2>/dev/null || echo "dev")
+          echo "VERSION_RAW=$VERSION_RAW" >> $GITHUB_ENV
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
-          tags: ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:${{ env.SHORT_SHA }}, ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:latest
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:${{ env.SHORT_SHA }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:${{ env.TAG_NAME }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.GH_REPO_NAME }}:latest
           push: true
           platforms: 'linux/amd64,linux/arm64'
-          labels: ${{ github.repository }}
+          labels: |
+            org.opencontainers.image.version=${{ env.VERSION_RAW }}
+            org.opencontainers.image.source=${{ github.repository }}
 
   release:
     name: Create GitHub Release
@@ -61,10 +74,10 @@ jobs:
       - name: Read .release-version for Version variable
         id: version_file
         run: |
-          TAG_NAME=$(head -n 1 .release-version)
+          TAG_NAME=$(head -n 1 .release-version 2>/dev/null || echo "v0.0.0")
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
-          VERSION=$(tail -n 1 .release-version | sed 's/ /-/g')
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          VERSION_RAW=$(tail -n 1 .release-version 2>/dev/null || echo "dev")
+          echo "VERSION_RAW=$VERSION_RAW" >> $GITHUB_ENV
 
       - name: Get Go Version
         run: |
@@ -85,15 +98,15 @@ jobs:
 
       - name: Build Linux binary
         run: |
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.linux ./cmd/yaml-encrypter-decrypter
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X 'main.Version=${{ env.VERSION_RAW }}'" -o yed.linux ./cmd/yaml-encrypter-decrypter
 
       - name: Build macOS binary
         run: |
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.darwin ./cmd/yaml-encrypter-decrypter
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X 'main.Version=${{ env.VERSION_RAW }}'" -o yed.darwin ./cmd/yaml-encrypter-decrypter
 
       - name: Build Windows binary
         run: |
-          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=${{ env.VERSION }}" -o yed.exe ./cmd/yaml-encrypter-decrypter
+          GOOS=windows GOARCH=amd64 go build -ldflags "-X 'main.Version=${{ env.VERSION_RAW }}'" -o yed.exe ./cmd/yaml-encrypter-decrypter
 
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1

@@ -26,32 +26,82 @@ type appFlags struct {
 
 // parseFlags parses command line arguments and returns an appFlags struct
 func parseFlags() appFlags {
-	filename := flag.String("file", "", "Path to the YAML file")
-	key := flag.String("key", "", "Encryption/decryption key")
-	operation := flag.String("operation", "", "Operation to perform (encrypt/decrypt)")
-	dryRun := flag.Bool("dry-run", false, "Print the result without modifying the file")
-	diff := flag.Bool("diff", false, "Show differences between original and encrypted values")
-	debug := flag.Bool("debug", false, "Enable debug logging")
-	showVersion := flag.Bool("version", false, "Show version information")
-	algorithm := flag.String("algorithm", "", "Key derivation algorithm to use (argon2id, pbkdf2-sha256, pbkdf2-sha512)")
-	benchmark := flag.Bool("benchmark", false, "Run performance benchmarks")
-	benchFile := flag.String("bench-file", "", "Path to save benchmark results (default: stdout)")
-	configPath := flag.String("config", "", "Path to the .yed_config.yml file (default: .yed_config.yml in current directory)")
+	// Define flags with short and long forms
+	var flags appFlags
+
+	// Required flags for main operation
+	flag.StringVar(&flags.filename, "file", "", "Path to the YAML file")
+	flag.StringVar(&flags.filename, "f", "", "")
+
+	flag.StringVar(&flags.key, "key", "", "Encryption/decryption key")
+	flag.StringVar(&flags.key, "k", "", "")
+
+	flag.StringVar(&flags.operation, "operation", "", "Operation to perform (encrypt/decrypt)")
+	flag.StringVar(&flags.operation, "o", "", "")
+
+	// Operation control flags
+	flag.BoolVar(&flags.dryRun, "dry-run", false, "Print the result without modifying the file")
+	flag.BoolVar(&flags.dryRun, "d", false, "")
+
+	flag.BoolVar(&flags.diff, "diff", false, "Show differences between original and encrypted values")
+	flag.BoolVar(&flags.diff, "D", false, "")
+
+	// Logging and information flags
+	flag.BoolVar(&flags.debug, "debug", false, "Enable debug logging")
+	flag.BoolVar(&flags.debug, "v", false, "")
+
+	flag.BoolVar(&flags.showVersion, "version", false, "Show version information")
+	flag.BoolVar(&flags.showVersion, "V", false, "")
+
+	// Advanced configuration flags
+	flag.StringVar(&flags.algorithm, "algorithm", "", "Key derivation algorithm to use (argon2id, pbkdf2-sha256, pbkdf2-sha512)")
+	flag.StringVar(&flags.algorithm, "a", "", "")
+
+	flag.StringVar(&flags.configPath, "config", "", "Path to the .yed_config.yml file (default: .yed_config.yml in current directory)")
+	flag.StringVar(&flags.configPath, "c", "", "")
+
+	// Performance analysis flags
+	flag.BoolVar(&flags.benchmark, "benchmark", false, "Run performance benchmarks")
+	flag.BoolVar(&flags.benchmark, "b", false, "")
+
+	flag.StringVar(&flags.benchFile, "bench-file", "", "Path to save benchmark results (default: stdout)")
+	flag.StringVar(&flags.benchFile, "B", "", "")
+
+	// Override default usage
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+		fmt.Fprintln(os.Stderr, "Options:")
+
+		// Print flags in organized groups
+		fmt.Fprintln(os.Stderr, "  Required for encryption/decryption:")
+		fmt.Fprintln(os.Stderr, "    -file, -f string     Path to the YAML file")
+		fmt.Fprintln(os.Stderr, "    -key, -k string      Encryption/decryption key")
+		fmt.Fprintln(os.Stderr, "    -operation, -o string Operation to perform (encrypt/decrypt)")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "  Operation control:")
+		fmt.Fprintln(os.Stderr, "    -dry-run, -d         Print the result without modifying the file")
+		fmt.Fprintln(os.Stderr, "    -diff, -D            Show differences between original and encrypted values")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "  Logging and information:")
+		fmt.Fprintln(os.Stderr, "    -debug, -v           Enable debug logging")
+		fmt.Fprintln(os.Stderr, "    -version, -V         Show version information")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "  Advanced configuration:")
+		fmt.Fprintln(os.Stderr, "    -algorithm, -a string Key derivation algorithm (argon2id, pbkdf2-sha256, pbkdf2-sha512)")
+		fmt.Fprintln(os.Stderr, "    -config, -c string    Path to the .yed_config.yml file (default: .yed_config.yml)")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "  Performance analysis:")
+		fmt.Fprintln(os.Stderr, "    -benchmark, -b       Run performance benchmarks")
+		fmt.Fprintln(os.Stderr, "    -bench-file, -B string Path to save benchmark results (default: stdout)")
+	}
+
 	flag.Parse()
 
-	return appFlags{
-		filename:    *filename,
-		key:         *key,
-		operation:   *operation,
-		dryRun:      *dryRun,
-		diff:        *diff,
-		debug:       *debug,
-		showVersion: *showVersion,
-		algorithm:   *algorithm,
-		benchmark:   *benchmark,
-		benchFile:   *benchFile,
-		configPath:  *configPath,
-	}
+	return flags
 }
 
 // getEncryptionKey returns the encryption key from flag or environment variable
