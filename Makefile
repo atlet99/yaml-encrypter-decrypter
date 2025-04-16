@@ -182,40 +182,6 @@ vet:
 	@echo "Running go vet..."
 	go vet ./...
 
-# Display help information
-.PHONY: help
-help:
-	@echo "Available targets:"
-	@echo "  default         - Run formatting, vetting, linting, staticcheck, build, and quick tests"
-	@echo "  run             - Run the application locally"
-	@echo "  install-deps    - Install project dependencies"
-	@echo "  upgrade-deps    - Upgrade all project dependencies to their latest versions"
-	@echo "  clean-deps      - Clean up vendor dependencies"
-	@echo "  build           - Build the application for the current OS/architecture"
-	@echo "  build-cross     - Build binaries for multiple platforms"
-	@echo "  clean           - Clean build artifacts"
-	@echo "  test            - Run all tests with race detection and coverage"
-	@echo "  quicktest       - Run quick tests without additional checks"
-	@echo "  test-coverage   - Run tests with coverage report"
-	@echo "  test-race       - Run tests with race detection"
-	@echo "  benchmark       - Run basic benchmarks"
-	@echo "  benchmark-long  - Run comprehensive benchmarks with longer duration"
-	@echo "  benchmark-encryption - Run only encryption/decryption benchmarks"
-	@echo "  benchmark-algorithms - Run key derivation algorithm comparison benchmarks"
-	@echo "  benchmark-argon2 - Run Argon2 configuration comparison benchmarks"
-	@echo "  benchmark-report - Generate a markdown report of all benchmarks"
-	@echo "  test-all        - Run all tests and benchmarks"
-	@echo "  clean-coverage  - Clean coverage and benchmark files"
-	@echo "  fmt             - Check code formatting"
-	@echo "  vet             - Analyze code with go vet"
-	@echo "  lint            - Run golangci-lint on the codebase"
-	@echo "  install-lint    - Install golangci-lint"
-	@echo "  lint-fix        - Run golangci-lint with auto-fix"
-	@echo "  staticcheck     - Run staticcheck static analyzer on the codebase"
-	@echo "  install-staticcheck - Install staticcheck"
-	@echo "  check-all       - Run all code quality checks (lint and staticcheck)"
-	@echo "  help            - Display this help message"
-
 .PHONY: test lint lint-fix install-lint
 
 # Install golangci-lint
@@ -249,3 +215,52 @@ check-all: lint staticcheck
 lint-fix:
 	@echo "Running linter with auto-fix..."
 	@~/go/bin/golangci-lint run --fix
+
+# Build and run the application in a container
+.PHONY: build-image run-image
+
+build-image:
+	docker build \
+	-t yed:$(TAG_NAME) \
+	-f Dockerfile .
+	@echo "Image built successfully."
+
+run-image:
+	docker run -it --rm yed:$(TAG_NAME)
+	@echo "Image run successfully."
+
+# Display help information
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo "  default         		- Run formatting, vetting, linting, staticcheck, build, and quick tests"
+	@echo "  run             		- Run the application locally"
+	@echo "  install-deps    		- Install project dependencies"
+	@echo "  upgrade-deps    		- Upgrade all project dependencies to their latest versions"
+	@echo "  clean-deps      		- Clean up vendor dependencies"
+	@echo "  build           		- Build the application for the current OS/architecture"
+	@echo "  build-cross     		- Build binaries for multiple platforms"
+	@echo "  clean           		- Clean build artifacts"
+	@echo "  test            		- Run all tests with race detection and coverage"
+	@echo "  quicktest       		- Run quick tests without additional checks"
+	@echo "  test-coverage   		- Run tests with coverage report"
+	@echo "  test-race       		- Run tests with race detection"
+	@echo "  benchmark       		- Run basic benchmarks"
+	@echo "  benchmark-long  		- Run comprehensive benchmarks with longer duration"
+	@echo "  benchmark-encryption 		- Run only encryption/decryption benchmarks"
+	@echo "  benchmark-algorithms 		- Run key derivation algorithm comparison benchmarks"
+	@echo "  benchmark-argon2 		- Run Argon2 configuration comparison benchmarks"
+	@echo "  benchmark-report 		- Generate a markdown report of all benchmarks"
+	@echo "  test-all        		- Run all tests and benchmarks"
+	@echo "  clean-coverage  		- Clean coverage and benchmark files"
+	@echo "  fmt             		- Check code formatting"
+	@echo "  vet             		- Analyze code with go vet"
+	@echo "  lint            		- Run golangci-lint on the codebase"
+	@echo "  install-lint    		- Install golangci-lint"
+	@echo "  lint-fix        		- Run golangci-lint with auto-fix"
+	@echo "  staticcheck     		- Run staticcheck static analyzer on the codebase"
+	@echo "  install-staticcheck 		- Install staticcheck"
+	@echo "  check-all       		- Run all code quality checks (lint and staticcheck)"
+	@echo "  build-image     		- Build Docker image"
+	@echo "  run-image       		- Run Docker image with --version flag"
+	@echo "  help            		- Display this help message"
