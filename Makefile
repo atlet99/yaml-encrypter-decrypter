@@ -21,6 +21,17 @@ run:
 	@echo "Running $(BINARY_NAME)..."
 	go run main.go
 
+# Manual testing of files in .test directory
+.PHONY: test-manual
+test-manual:
+	@echo "Running manual tests for cert-test.yml..."
+	@echo "Step 1: Testing with dry-run mode..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --config=.test/.yed_config.yml --file=.test/cert-test.yml --operation=encrypt
+	@echo "Step 2: Testing in debug mode without dry-run..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test.yml --operation=encrypt
+	@echo "Step 3: Testing decrypt operation..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test.yml --operation=decrypt
+
 # Install project dependencies
 .PHONY: install-deps
 install-deps:
@@ -245,13 +256,14 @@ help:
 	@echo "  quicktest       		- Run quick tests without additional checks"
 	@echo "  test-coverage   		- Run tests with coverage report"
 	@echo "  test-race       		- Run tests with race detection"
+	@echo "  test-manual    		- Run manual tests"
+	@echo "  test-all        		- Run all tests and benchmarks"
 	@echo "  benchmark       		- Run basic benchmarks"
 	@echo "  benchmark-long  		- Run comprehensive benchmarks with longer duration"
 	@echo "  benchmark-encryption 		- Run only encryption/decryption benchmarks"
 	@echo "  benchmark-algorithms 		- Run key derivation algorithm comparison benchmarks"
 	@echo "  benchmark-argon2 		- Run Argon2 configuration comparison benchmarks"
 	@echo "  benchmark-report 		- Generate a markdown report of all benchmarks"
-	@echo "  test-all        		- Run all tests and benchmarks"
 	@echo "  clean-coverage  		- Clean coverage and benchmark files"
 	@echo "  fmt             		- Check code formatting"
 	@echo "  vet             		- Analyze code with go vet"

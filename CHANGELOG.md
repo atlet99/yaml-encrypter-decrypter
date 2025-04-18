@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `upgrade-deps` command for updating all dependencies to latest versions
   - `staticcheck` command for running static analysis
   - `check-all` command for running all code quality checks at once
+- Added manual test procedure to Makefile:
+  - Added `test-manual` command for testing files from `.test` directory
+  - Implemented testing in dry-run mode first, then in debug mode
+  - Added specific support for cert-test.yml testing with custom config
+  - Modified help command to include the new test-manual option
 - [YED-001] New processor package with enhanced YAML processing capabilities
 - [YED-002] Extended debug logging functionality
 - [YED-003] New security features in encryption package
@@ -99,7 +104,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated encryption key handling to use secure memory buffers
 - Improved debug logging functionality
 - Enhanced validation of encrypted data
-- Updated documentation in README.md
+- Updated documentation in README.md:
+  - Improved Command-Line Interface section with better organized options
+  - Updated Makefile Commands section with complete list of all available commands
+  - Added new sections on Testing Capabilities, Docker Support, and Code Quality Tools
+  - Clarified minimum key length requirement (16 characters) in all relevant sections
+  - Added comprehensive information about specialized test files
+  - Improved organization of content with clearer separation of sections
 - Updated Russian documentation in localizations/ru-RU/docs/README.md with all latest features and changes
 - Improved error handling in tests
 - Optimized base64 string validation

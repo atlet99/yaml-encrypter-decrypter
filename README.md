@@ -382,10 +382,10 @@ With the example rules above:
 
 Override the encryption key with `YED_ENCRYPTION_KEY`:
 ```bash
-export YED_ENCRYPTION_KEY="my-super-secure-key"
+export YED_ENCRYPTION_KEY="my-super-p@s$w0rd123"
 ```
 **Password Requirements:**
-- **Minimum**: 8 characters
+- **Minimum**: 16 characters
 - **Maximum**: 64 characters (supports passphrases)
 - **Recommendation**: Use a mix of uppercase, lowercase, numbers, and special characters
 - **Avoid**: Common passwords will be rejected for security
@@ -394,18 +394,29 @@ export YED_ENCRYPTION_KEY="my-super-secure-key"
 
 *The tool provides various options to encrypt and decrypt data:*
 
-**Available Flags:**
-- `--file` - Path to the YAML file to process
-- `--key` - Encryption/decryption key (can also be set via YED_ENCRYPTION_KEY env variable)
-- `--operation` - Operation to perform (encrypt/decrypt)
-- `--dry-run` - Print the result without modifying the file
-- `--diff` - Show differences between original and encrypted values
-- `--debug` - Enable debug logging
-- `--config` - Path to the .yed_config.yml file (default: .yed_config.yml in current directory)
-- `--algorithm` - Key derivation algorithm to use (argon2id, pbkdf2-sha256, pbkdf2-sha512)
-- `--version` - Show version information
-- `--benchmark` - Run performance benchmarks
-- `--bench-file` - Path to save benchmark results (default: stdout)
+**Available Options:**
+```
+  Required for encryption/decryption:
+    -file, -f string      Path to the YAML file
+    -key, -k string       Encryption/decryption key
+    -operation, -o string Operation to perform (encrypt/decrypt)
+
+  Operation control:
+    -dry-run, -d          Print the result without modifying the file
+    -diff, -D             Show differences between original and encrypted values
+
+  Logging and information:
+    -debug, -v            Enable debug logging
+    -version, -V          Show version information
+
+  Advanced configuration:
+    -algorithm, -a string Key derivation algorithm (argon2id, pbkdf2-sha256, pbkdf2-sha512)
+    -config, -c string    Path to the .yed_config.yml file (default: .yed_config.yml)
+
+  Performance analysis:
+    -benchmark, -b        Run performance benchmarks
+    -bench-file, -B string Path to save benchmark results (default: stdout)
+```
 
 **Encrypt a Single Value**
 ```bash
@@ -448,22 +459,158 @@ smart_config.auth.password:
 
 ### **Makefile Commands**
 
-| Target            | Description                                                    |
-| ----------------- | -------------------------------------------------------------- |
-| make build        | Build the application for the current OS and architecture.     |
-| make run          | Run the application locally.                                   |
-| make build-cross  | Build binaries for multiple platforms (Linux, macOS, Windows). |
-| make test         | Run all tests with race detection and coverage enabled.        |
-| make test-coverage| Run tests with coverage report.                               |
-| make test-race    | Run tests with race detector.                                 |
-| make test-benchmark| Run performance benchmarks.                                   |
-| make test-all     | Run all tests and benchmarks.                                 |
-| make quicktest    | Run quick tests without additional checks.                     |
-| make fmt          | Check code formatting with gofmt.                              |
-| make vet          | Analyze code using go vet.                                     |
-| make install-deps | Install project dependencies.                                  |
-| make clean        | Remove build artifacts.                                        |
-| make help         | Display help information for Makefile targets.                 |
+| Target                | Description                                                    |
+| --------------------- | -------------------------------------------------------------- |
+| make default          | Run formatting, vetting, linting, staticcheck, build, and quick tests |
+| make build            | Build the application for the current OS and architecture.     |
+| make run              | Run the application locally.                                   |
+| make install-deps     | Install project dependencies.                                  |
+| make upgrade-deps     | Upgrade all project dependencies to their latest versions.     |
+| make clean-deps       | Clean up vendor dependencies.                                  |
+| make build-cross      | Build binaries for multiple platforms (Linux, macOS, Windows). |
+| make clean            | Remove build artifacts.                                        |
+| make test             | Run all tests with race detection and coverage enabled.        |
+| make quicktest        | Run quick tests without additional checks.                     |
+| make test-coverage    | Run tests with coverage report.                               |
+| make test-race        | Run tests with race detector.                                 |
+| make test-manual      | Run manual tests with cert-test.yml using provided test configuration. |
+| make test-all         | Run all tests and benchmarks.                                 |
+| make benchmark        | Run basic benchmarks.                                         |
+| make benchmark-long   | Run comprehensive benchmarks with longer duration (5s per test). |
+| make benchmark-encryption | Run only encryption/decryption benchmarks.                 |
+| make benchmark-algorithms | Run key derivation algorithm comparison benchmarks.        |
+| make benchmark-argon2 | Run Argon2 configuration comparison benchmarks.               |
+| make benchmark-report | Generate comprehensive benchmark reports in Markdown.          |
+| make clean-coverage   | Clean coverage and benchmark files.                           |
+| make fmt              | Check code formatting with gofmt.                              |
+| make vet              | Analyze code using go vet.                                     |
+| make lint             | Run golangci-lint on the codebase.                            |
+| make install-lint     | Install golangci-lint.                                        |
+| make lint-fix         | Run golangci-lint with auto-fix.                              |
+| make staticcheck      | Run staticcheck static analyzer on the codebase.              |
+| make install-staticcheck | Install staticcheck.                                       |
+| make check-all        | Run all code quality checks (lint and staticcheck).           |
+| make build-image      | Build Docker image.                                           |
+| make run-image        | Run Docker image with --version flag.                         |
+| make help             | Display help information for Makefile targets.                 |
+
+### **Testing Capabilities**
+
+The project provides comprehensive testing capabilities:
+
+#### **Automated Tests**
+Run the full test suite with race detection and coverage:
+```bash
+make test
+```
+
+#### **Manual Tests**
+Test specific files from `.test` directory:
+```bash
+make test-manual
+```
+
+This will test `cert-test.yml` from the `.test` directory using the following steps:
+1. First test with dry-run mode to check without making changes
+2. Then test with debug mode for detailed operation information
+3. Finally test the decryption process
+
+#### **Performance Benchmarks**
+Run different benchmark sets to evaluate performance:
+
+```bash
+# Run basic benchmarks
+make benchmark
+
+# Run more detailed benchmarks with longer duration
+make benchmark-long
+
+# Run specific benchmarks for encryption/decryption
+make benchmark-encryption
+
+# Generate a comprehensive benchmark report
+make benchmark-report
+```
+
+### **Docker Support**
+
+The tool can be built and run inside a Docker container:
+
+```bash
+# Build the Docker image
+make build-image
+
+# Run the tool inside a Docker container
+make run-image
+```
+
+### **Advanced Features**
+
+#### **Multiple Key Derivation Algorithms**
+
+Choose between different key derivation algorithms when encrypting/decrypting:
+
+```bash
+# Use Argon2id (default)
+./bin/yed --file config.yaml --key="my-secure-key" --operation encrypt --algorithm argon2id
+
+# Use PBKDF2-SHA256 (NIST/FIPS compatible, faster)
+./bin/yed --file config.yaml --key="my-secure-key" --operation encrypt --algorithm pbkdf2-sha256
+
+# Use PBKDF2-SHA512 (NIST/FIPS compatible, balanced security/performance)
+./bin/yed --file config.yaml --key="my-secure-key" --operation encrypt --algorithm pbkdf2-sha512
+```
+
+#### **Specialized Test Files**
+
+The project includes a `.test` directory with various test files:
+- `cert-test.yml` - For testing certificate encryption/decryption
+- `config-test.yml` - For testing configuration encryption
+- `variables.yml` - For testing variable substitution
+- `.yed_config.yml` - Special configuration for testing
+
+These files can be used for manual testing and verification of encryption/decryption functionality:
+
+```bash
+# Manually test a specific file from .test directory
+./bin/yed --file .test/cert-test.yml --key="my-secure-key" --operation encrypt --config=.test/.yed_config.yml
+```
+
+### **Code Quality Tools**
+
+The project integrates multiple code quality tools:
+
+```bash
+# Run all code quality checks
+make check-all
+
+# Run static code analysis
+make staticcheck
+
+# Run linter
+make lint
+
+# Fix linting issues automatically 
+make lint-fix
+```
+
+### **Security Best Practices**
+
+The project implements several security best practices:
+
+1. **Secure Memory Handling**: All sensitive data is handled in protected memory areas
+2. **Strong Password Requirements**: Proper validation of encryption keys
+3. **Multiple Encryption Algorithms**: Support for both Argon2id and PBKDF2 for different compliance requirements
+4. **Masking of Sensitive Data**: Proper handling of sensitive information in logs and outputs
+5. **Explicit Buffer Cleanup**: Explicit destruction of sensitive buffers to prevent memory leaks
+
+### **Continuous Integration**
+
+The project uses GitHub Actions for continuous integration with workflows for:
+- Building and testing on multiple platforms
+- Security scanning with Trivy, Nancy, and OSSF Scorecard
+- Code quality checks with golangci-lint and staticcheck
+- Automatic version bumping for releases
 
 ### **Build Cross-Platform Binaries**
 
