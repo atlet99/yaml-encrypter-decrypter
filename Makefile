@@ -25,12 +25,15 @@ run:
 .PHONY: test-manual
 test-manual:
 	@echo "Running manual tests for cert-test.yml..."
-	@echo "Step 1: Testing with dry-run mode..."
-	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --config=.test/.yed_config.yml --file=.test/cert-test.yml --operation=encrypt
-	@echo "Step 2: Testing in debug mode without dry-run..."
-	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test.yml --operation=encrypt
-	@echo "Step 3: Testing decrypt operation..."
-	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test.yml --operation=decrypt
+	@echo "Creating a copy of the test file for safe testing..."
+	@cp -f .test/cert-test.yml .test/cert-test-copy.yml
+	@echo "Step 1: Testing with dry-run mode on the copy..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=encrypt
+	@echo "Step 2: Testing in debug mode without dry-run on the copy..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=encrypt
+	@echo "Step 3: Testing decrypt operation on the copy..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=decrypt
+	@echo "Tests completed. Original file was preserved, changes were made to .test/cert-test-copy.yml"
 
 # Install project dependencies
 .PHONY: install-deps

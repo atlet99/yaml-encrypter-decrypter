@@ -104,6 +104,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated encryption key handling to use secure memory buffers
 - Improved debug logging functionality
 - Enhanced validation of encrypted data
+- Improved test-manual Makefile command to work with file copies:
+  - Now creates a copy of cert-test.yml before testing
+  - All test operations run on the copy file (cert-test-copy.yml)
+  - Original test files remain unchanged during testing
+  - Added informative message about file preservation
 - Updated documentation in README.md:
   - Improved Command-Line Interface section with better organized options
   - Updated Makefile Commands section with complete list of all available commands

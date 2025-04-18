@@ -511,9 +511,13 @@ make test-manual
 ```
 
 This will test `cert-test.yml` from the `.test` directory using the following steps:
-1. First test with dry-run mode to check without making changes
-2. Then test with debug mode for detailed operation information
-3. Finally test the decryption process
+1. Create a copy of the original test file (`cert-test-copy.yml`) to preserve the original
+2. First test with dry-run mode to check without making changes
+3. Then test with debug mode for detailed operation information
+4. Finally test the decryption process
+5. All changes are made to the copy file, leaving the original intact
+
+The original test files remain unchanged during testing, which makes it safe to run repeated tests.
 
 #### **Performance Benchmarks**
 Run different benchmark sets to evaluate performance:
