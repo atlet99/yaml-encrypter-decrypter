@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/atlet99/yaml-encrypter-decrypter/pkg/encryption"
 	"github.com/atlet99/yaml-encrypter-decrypter/pkg/processor"
 
 	"github.com/awnumar/memguard"
@@ -20,7 +21,17 @@ const (
 )
 
 func main() {
-	os.Exit(mainWithExitCode())
+	// Safe termination when receiving interrupt signal
+	memguard.CatchInterrupt()
+
+	// Run main code and exit with returned code
+	code := mainWithExitCode()
+
+	// Clean up at the end of execution
+	memguard.Purge()
+
+	// Exit with the return code
+	os.Exit(code)
 }
 
 func mainWithExitCode() int {
@@ -56,15 +67,11 @@ func mainWithExitCode() int {
 	}
 
 	// Validate and set algorithm flag if provided
-	keyDerivation, err := validateAlgorithm(flags.algorithm)
+	keyDerivation, err := encryption.ValidateAlgorithm(flags.algorithm)
 	if err != nil {
 		log.Println(err)
 		return 1
 	}
-
-	// Initialize memguard
-	memguard.CatchInterrupt()
-	defer memguard.Purge()
 
 	// Create a secure buffer for the key
 	keyBuffer := memguard.NewBufferFromBytes([]byte(key))
@@ -104,7 +111,7 @@ func mainWithExitCode() int {
 
 	// Set the encryption algorithm if specified
 	if keyDerivation != "" {
-		setKeyDerivationAlgorithm(keyDerivation, flags.debug)
+		encryption.SetDefaultAlgorithm(keyDerivation)
 	}
 
 	// Process file and handle interruption

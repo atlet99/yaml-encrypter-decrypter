@@ -5,6 +5,8 @@ CMD_DIR := cmd/yaml-encrypter-decrypter
 TAG_NAME ?= $(shell head -n 1 .release-version 2>/dev/null || echo "v0.0.0")
 VERSION_RAW ?= $(shell tail -n 1 .release-version 2>/dev/null || echo "dev")
 VERSION ?= $(VERSION_RAW)
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
 GO_FILES := $(wildcard $(CMD_DIR)/*.go)
 
 # Ensure the output directory exists
@@ -21,16 +23,21 @@ run:
 	@echo "Running $(BINARY_NAME)..."
 	go run main.go
 
-# Manual testing of files in .test directory
 .PHONY: test-manual
-test-manual:
+test-manual: build test-manual-check
+# Manual testing of files in .test directory
+.PHONY: test-manual-check
+test-manual-check:
 	@echo "Running manual tests for cert-test.yml..."
 	@echo "Creating a copy of the test file for safe testing..."
 	@cp -f .test/cert-test.yml .test/cert-test-copy.yml
+	@cp -f .test/variables.yml .test/variables-copy.yml
 	@echo "Step 1: Testing with dry-run mode on the copy..."
 	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=encrypt
+	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --config=.test/.yed_config.yml --file=.test/variables-copy.yml --operation=encrypt
 	@echo "Step 2: Testing in debug mode without dry-run on the copy..."
 	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=encrypt
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/variables-copy.yml --operation=encrypt
 	@echo "Step 3: Testing decrypt operation on the copy..."
 	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=decrypt
 	@echo "Tests completed. Original file was preserved, changes were made to .test/cert-test-copy.yml"

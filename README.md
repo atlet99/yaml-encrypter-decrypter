@@ -32,6 +32,16 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 - Improved error handling and enhanced debug logging.
 - Comprehensive test coverage with race detection.
 - Performance benchmarks for encryption/decryption operations.
+- Updated password requirements according to NIST SP 800-63B:
+  - Minimum password length increased to 15 characters
+  - Maximum password length remains at 64 characters
+- Improved help output formatting with clear categorization of options.
+
+## **Recent Updates**
+- **Security Enhancement**: Increased minimum password length to 15 characters to comply with NIST SP 800-63B guidelines
+- **UI Improvement**: Reorganized help output for better readability and clarity
+- **Documentation**: Updated all documentation to reflect new security requirements
+- **Code Quality**: Fixed various linter warnings and improved code documentation
 
 ## **Performance Benchmarks**
 
@@ -124,7 +134,7 @@ The tool implements robust memory security measures to protect sensitive data:
 4. **Signal Handling**: Properly handles interruption signals to ensure sensitive data is wiped from memory.
 5. **Buffer Lifecycle**: Explicit buffer lifecycle management with destroy calls to prevent memory leaks.
 6. **Sensitive Data Protection**: Prevents sensitive data from being exposed in logs or error messages.
-7. **Strong Password Requirements**: Enforces a minimum key length of 16 characters for both command-line and environment variable provided keys.
+7. **Strong Password Requirements**: Enforces a minimum key length of 15 characters (NIST SP 800-63B compliant) for both command-line and environment variable provided keys.
 
 ### **Multiline YAML Support**
 The tool provides comprehensive support for encrypting and decrypting multiline YAML content:
@@ -752,3 +762,22 @@ export YED_ENCRYPTION_KEY="my-super-secure-key"
 ```
 
 The environment variable approach provides an alternative to passing sensitive data on the command line, which might be visible in process listings.
+
+## YAML Format Preservation
+
+This tool preserves YAML formatting during encryption and decryption operations:
+
+- Literal style (`|`) is fully supported and preserved
+- Folded style (`>` or `>-`) is preserved using a special handling mechanism
+- Double-quoted and single-quoted values maintain their original style
+- Plain scalars remain plain after decryption
+
+### Folded Style Support
+
+YAML folded style (`>` or `>-`) is specially handled to maintain its formatting. The tool:
+
+1. Identifies folded style sections in the YAML document
+2. Temporarily replaces them with placeholders during processing
+3. Restores the original formatting after encryption/decryption
+
+This approach ensures that folded style sections are not corrupted during encryption/decryption operations.

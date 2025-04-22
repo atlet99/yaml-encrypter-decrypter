@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented testing in dry-run mode first, then in debug mode
   - Added specific support for cert-test.yml testing with custom config
   - Modified help command to include the new test-manual option
+- Added auto-detection of host OS and architecture in Makefile:
+  - Added `GOOS` and `GOARCH` variables that automatically detect system values via go env
+  - Improved build process to use detected values when not explicitly overridden
+  - Enhanced cross-platform compatibility for local development
 - [YED-001] New processor package with enhanced YAML processing capabilities
 - [YED-002] Extended debug logging functionality
 - [YED-003] New security features in encryption package
@@ -99,6 +103,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Memory usage reduced by ~27x while maintaining security
 - [YED-007] Updated .gitignore with extended rules
 - [YED-008] Improved debug mode handling
+- Improved multiline text handling:
+  - Simplified approach to preserve exact original formatting
+  - Fixed handling of double-quoted strings with escaped newlines (\\n)
+  - Removed special handling for certificates/keys to ensure consistent formatting across all text types
+  - Focus on maintaining the original YAML style during encryption and decryption cycles
+  - Fixed issues with newline character preservation
+  - Added proper support for different YAML scalar styles (literal, folded, double-quoted, single-quoted)
+  - Improved reliability for recursive encryption/decryption operations
 - Improved error handling and validation in main.go
 - Enhanced command-line argument handling with better validation
 - Updated encryption key handling to use secure memory buffers
@@ -141,6 +153,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed build commands to properly compile all source files
   - Changed target paths from specific files to directories
   - Added proper path prefixes to ensure correct Go module resolution
+- Translated all Russian comments to English in the codebase for better international accessibility
+  - Updated comments in `pkg/processor/processor.go` related to:
+    - Path matching and rule processing
+    - Multiline string handling
+    - Style suffix processing
+    - Sensitive data handling
+    - Debug key masking
+    - Base64 error handling
+- Improved help output formatting for better readability:
+  - Grouped options into logical categories
+  - Added clear section headers
+  - Improved alignment and spacing
+  - Enhanced visual separation between sections
+  - Added consistent indentation for better scanning
+  - Standardized option descriptions format
+  - Added default values where applicable
+  - Improved overall visual hierarchy
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
@@ -215,10 +244,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed an issue where rules with pattern "**" would match all paths regardless of the block value
   - Changed the pattern for skip_axel_fix rule from "**" to "*" to properly limit its scope to only the specified block
   - Improved check order to ensure block matching is performed before pattern matching
+- Fixed linter issues:
+  - Removed unused constants from pkg/encryption/encryption.go
+  - Fixed exitAfterDefer issue in main.go to ensure proper cleanup
+  - Replaced magic numbers with named constants for better code quality and readability
+  - Added dedicated constants for percentage calculations
 
 ### Removed
 - Removed deprecated tests from encryption and processor packages
 - Removed unused functions and imports
+- Removed unused constants compressedAlgorithmByte and uncompressedAlgorithmByte
 
 ### Enhancements
 - [YED-011] Added multiple key derivation algorithms:
@@ -250,4 +285,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - YAML file support
 - Configuration via .yed_config.yml
 - Conditional encryption support
-- Debug mode and dry run support 
+- Debug mode and dry run support
+
+## [0.3.6] - 2025-04-23
+### Added
+- Support for YAML folded style (`>` and `>-`) preservation during encryption/decryption
+- Improved documentation for format preservation features
+
+### Fixed
+- Fixed test cases for folded style by correctly handling this format
+- Improved debug logging for folded style detection and processing
+
+## [0.3.5] - 2025-04-10
+### Added
+- Support for custom configuration paths
+- Better error handling for invalid keys 
