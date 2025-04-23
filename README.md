@@ -49,11 +49,11 @@ The performance of different key derivation algorithms has been extensively benc
 
 ### **Key Derivation Algorithm Comparison**
 
-| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|-----------|----------------|--------------|---------------|-----------|
-| Argon2id | 60 | 18,363,235 | 9,442,344 | 49 |
-| PBKDF2-SHA256 | 10,000 | 107,746 | 804 | 11 |
-| PBKDF2-SHA512 | 4,830 | 236,775 | 1,380 | 11 |
+| Algorithm     | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+| ------------- | -------------- | ------------ | ------------- | --------- |
+| Argon2id      | 60             | 18,363,235   | 9,442,344     | 49        |
+| PBKDF2-SHA256 | 10,000         | 107,746      | 804           | 11        |
+| PBKDF2-SHA512 | 4,830          | 236,775      | 1,380         | 11        |
 
 **Key Insights:**
 - **PBKDF2-SHA256** is approximately **170x faster** than Argon2id
@@ -63,12 +63,12 @@ The performance of different key derivation algorithms has been extensively benc
 
 ### **Argon2 Configurations Comparison**
 
-| Configuration | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|--------------|----------------|--------------|---------------|-----------|
-| OWASP-1-current | 67 | 17,818,289 | 9,442,306 | 48 |
-| OWASP-2 | 70 | 17,125,754 | 7,345,429 | 56 |
-| OWASP-3 | 67 | 17,846,443 | 12,587,776 | 40 |
-| Previous-Config | 8 | 138,691,224 | 268,457,400 | 198 |
+| Configuration   | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+| --------------- | -------------- | ------------ | ------------- | --------- |
+| OWASP-1-current | 67             | 17,818,289   | 9,442,306     | 48        |
+| OWASP-2         | 70             | 17,125,754   | 7,345,429     | 56        |
+| OWASP-3         | 67             | 17,846,443   | 12,587,776    | 40        |
+| Previous-Config | 8              | 138,691,224  | 268,457,400   | 198       |
 
 **Key Improvements:**
 - The current OWASP-recommended configuration is **~8x faster** than the previous configuration
@@ -78,25 +78,25 @@ The performance of different key derivation algorithms has been extensively benc
 ### **Basic Encryption and Decryption Performance**
 
 | Operation | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|-----------|----------------|--------------|---------------|-----------|
-| Encrypt | 66 | 17,791,645 | 10,260,991 | 88 |
-| Decrypt | 67 | 19,369,065 | 9,490,663 | 71 |
+| --------- | -------------- | ------------ | ------------- | --------- |
+| Encrypt   | 66             | 17,791,645   | 10,260,991    | 88        |
+| Decrypt   | 67             | 19,369,065   | 9,490,663     | 71        |
 
 ### **Encryption with Different Algorithms**
 
-| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|-----------|----------------|--------------|---------------|-----------|
-| argon2id | 61 | 19,897,308 | 10,259,454 | 89 |
-| pbkdf2-sha256 | 6,548 | 191,538 | 817,917 | 51 |
-| pbkdf2-sha512 | 3,604 | 340,094 | 818,493 | 51 |
+| Algorithm     | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+| ------------- | -------------- | ------------ | ------------- | --------- |
+| argon2id      | 61             | 19,897,308   | 10,259,454    | 89        |
+| pbkdf2-sha256 | 6,548          | 191,538      | 817,917       | 51        |
+| pbkdf2-sha512 | 3,604          | 340,094      | 818,493       | 51        |
 
 ### **Decryption with Different Algorithms**
 
-| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|-----------|----------------|--------------|---------------|-----------|
-| argon2id | 61 | 20,304,921 | 9,486,333 | 68 |
-| pbkdf2-sha256 | 7,838 | 160,589 | 44,796 | 30 |
-| pbkdf2-sha512 | 3,909 | 313,596 | 45,372 | 30 |
+| Algorithm     | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+| ------------- | -------------- | ------------ | ------------- | --------- |
+| argon2id      | 61             | 20,304,921   | 9,486,333     | 68        |
+| pbkdf2-sha256 | 7,838          | 160,589      | 44,796        | 30        |
+| pbkdf2-sha512 | 3,909          | 313,596      | 45,372        | 30        |
 
 **Note:** These benchmarks were performed on an Apple M3 Pro processor. Performance may vary based on hardware.
 
@@ -469,40 +469,40 @@ smart_config.auth.password:
 
 ### **Makefile Commands**
 
-| Target                | Description                                                    |
-| --------------------- | -------------------------------------------------------------- |
-| make default          | Run formatting, vetting, linting, staticcheck, build, and quick tests |
-| make build            | Build the application for the current OS and architecture.     |
-| make run              | Run the application locally.                                   |
-| make install-deps     | Install project dependencies.                                  |
-| make upgrade-deps     | Upgrade all project dependencies to their latest versions.     |
-| make clean-deps       | Clean up vendor dependencies.                                  |
-| make build-cross      | Build binaries for multiple platforms (Linux, macOS, Windows). |
-| make clean            | Remove build artifacts.                                        |
-| make test             | Run all tests with race detection and coverage enabled.        |
-| make quicktest        | Run quick tests without additional checks.                     |
-| make test-coverage    | Run tests with coverage report.                               |
-| make test-race        | Run tests with race detector.                                 |
-| make test-manual      | Run manual tests with cert-test.yml using provided test configuration. |
-| make test-all         | Run all tests and benchmarks.                                 |
-| make benchmark        | Run basic benchmarks.                                         |
-| make benchmark-long   | Run comprehensive benchmarks with longer duration (5s per test). |
-| make benchmark-encryption | Run only encryption/decryption benchmarks.                 |
-| make benchmark-algorithms | Run key derivation algorithm comparison benchmarks.        |
-| make benchmark-argon2 | Run Argon2 configuration comparison benchmarks.               |
-| make benchmark-report | Generate comprehensive benchmark reports in Markdown.          |
-| make clean-coverage   | Clean coverage and benchmark files.                           |
-| make fmt              | Check code formatting with gofmt.                              |
-| make vet              | Analyze code using go vet.                                     |
-| make lint             | Run golangci-lint on the codebase.                            |
-| make install-lint     | Install golangci-lint.                                        |
-| make lint-fix         | Run golangci-lint with auto-fix.                              |
-| make staticcheck      | Run staticcheck static analyzer on the codebase.              |
-| make install-staticcheck | Install staticcheck.                                       |
-| make check-all        | Run all code quality checks (lint and staticcheck).           |
-| make build-image      | Build Docker image.                                           |
-| make run-image        | Run Docker image with --version flag.                         |
-| make help             | Display help information for Makefile targets.                 |
+| Target                    | Description                                                            |
+| ------------------------- | ---------------------------------------------------------------------- |
+| make default              | Run formatting, vetting, linting, staticcheck, build, and quick tests  |
+| make build                | Build the application for the current OS and architecture.             |
+| make run                  | Run the application locally.                                           |
+| make install-deps         | Install project dependencies.                                          |
+| make upgrade-deps         | Upgrade all project dependencies to their latest versions.             |
+| make clean-deps           | Clean up vendor dependencies.                                          |
+| make build-cross          | Build binaries for multiple platforms (Linux, macOS, Windows).         |
+| make clean                | Remove build artifacts.                                                |
+| make test                 | Run all tests with race detection and coverage enabled.                |
+| make quicktest            | Run quick tests without additional checks.                             |
+| make test-coverage        | Run tests with coverage report.                                        |
+| make test-race            | Run tests with race detector.                                          |
+| make test-manual          | Run manual tests with cert-test.yml using provided test configuration. |
+| make test-all             | Run all tests and benchmarks.                                          |
+| make benchmark            | Run basic benchmarks.                                                  |
+| make benchmark-long       | Run comprehensive benchmarks with longer duration (5s per test).       |
+| make benchmark-encryption | Run only encryption/decryption benchmarks.                             |
+| make benchmark-algorithms | Run key derivation algorithm comparison benchmarks.                    |
+| make benchmark-argon2     | Run Argon2 configuration comparison benchmarks.                        |
+| make benchmark-report     | Generate comprehensive benchmark reports in Markdown.                  |
+| make clean-coverage       | Clean coverage and benchmark files.                                    |
+| make fmt                  | Check code formatting with gofmt.                                      |
+| make vet                  | Analyze code using go vet.                                             |
+| make lint                 | Run golangci-lint on the codebase.                                     |
+| make install-lint         | Install golangci-lint.                                                 |
+| make lint-fix             | Run golangci-lint with auto-fix.                                       |
+| make staticcheck          | Run staticcheck static analyzer on the codebase.                       |
+| make install-staticcheck  | Install staticcheck.                                                   |
+| make check-all            | Run all code quality checks (lint and staticcheck).                    |
+| make build-image          | Build Docker image.                                                    |
+| make run-image            | Run Docker image with --version flag.                                  |
+| make help                 | Display help information for Makefile targets.                         |
 
 ### **Testing Capabilities**
 
@@ -781,3 +781,10 @@ YAML folded style (`>` or `>-`) is specially handled to maintain its formatting.
 3. Restores the original formatting after encryption/decryption
 
 This approach ensures that folded style sections are not corrupted during encryption/decryption operations.
+
+## Security Considerations
+
+- Passwords should be at least 15 characters long
+- Strong passwords should include uppercase, lowercase, numbers, and special characters
+- Only the Argon2id algorithm is fully supported for production use
+- Protected memory is used for encryption keys but not for all data

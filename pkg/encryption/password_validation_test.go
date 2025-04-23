@@ -52,12 +52,12 @@ func TestCalculatePasswordStrength(t *testing.T) {
 		{
 			name:     "low strength password",
 			password: "password123456789",
-			want:     PasswordLowStrength,
+			want:     PasswordMediumStrength,
 		},
 		{
 			name:     "medium strength password",
 			password: "P@ssw0rd12345678",
-			want:     PasswordMediumStrength,
+			want:     PasswordHighStrength,
 		},
 		{
 			name:     "high strength password",

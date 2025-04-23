@@ -417,75 +417,64 @@ func min(x, y int) int {
 	return y
 }
 
-// max returns the maximum of two integers
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-// compress compresses data using gzip.
+// compress compresses data using gzip with best compression level
 func compress(data []byte) ([]byte, error) {
-	debugPrint("[DEBUG:Compress] Compressing %d bytes of data\n", len(data))
-	startTime := time.Now()
+	debugPrint("[DEBUG:Compress] Starting compression of %d bytes\n", len(data))
 
 	var buf bytes.Buffer
-	zw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+
+	// Create a gzip writer with best compression
+	gzw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
 	if err != nil {
-		debugPrint("[DEBUG:Compress] Error creating gzip writer: %v\n", err)
-		return nil, err
+		debugPrint("[DEBUG:Compress] Failed to create gzip writer: %v\n", err)
+		return nil, fmt.Errorf("failed to create gzip writer: %w", err)
 	}
 
-	// Write data to gzip writer
-	bytesWritten, err := zw.Write(data)
-	if err != nil {
-		debugPrint("[DEBUG:Compress] Error writing to gzip: %v\n", err)
-		return nil, err
-	}
-	debugPrint("[DEBUG:Compress] Written %d bytes to gzip writer\n", bytesWritten)
-
-	if err := zw.Close(); err != nil {
-		debugPrint("[DEBUG:Compress] Error closing gzip writer: %v\n", err)
-		return nil, err
+	// Write data to the gzip writer
+	if _, err := gzw.Write(data); err != nil {
+		debugPrint("[DEBUG:Compress] Failed to write data to gzip writer: %v\n", err)
+		gzw.Close()
+		return nil, fmt.Errorf("failed to write to gzip writer: %w", err)
 	}
 
-	compressedData := buf.Bytes()
-	compressionRatio := float64(len(compressedData)) / float64(len(data)) * percentMultiplier
-	debugPrint("[DEBUG:Compress] Compression complete in %v\n", time.Since(startTime))
-	debugPrint("[DEBUG:Compress] Original: %d bytes, Compressed: %d bytes (%.2f%%)\n",
-		len(data), len(compressedData), compressionRatio)
+	// Close the gzip writer to flush any pending data
+	if err := gzw.Close(); err != nil {
+		debugPrint("[DEBUG:Compress] Failed to close gzip writer: %v\n", err)
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
+	}
 
-	return compressedData, nil
+	// Get the compressed data
+	compressed := buf.Bytes()
+	debugPrint("[DEBUG:Compress] Compression complete: %d bytes → %d bytes (%.1f%%)\n",
+		len(data), len(compressed), percentMultiplier*(normalizationFactor-float64(len(compressed))/float64(len(data))))
+
+	return compressed, nil
 }
 
-// decompress decompresses gzipped data.
+// decompress decompresses gzipped data
 func decompress(compressedData []byte) ([]byte, error) {
-	debugPrint("[DEBUG:Decompress] Decompressing %d bytes of data\n", len(compressedData))
-	startTime := time.Now()
+	debugPrint("[DEBUG:Decompress] Starting decompression of %d bytes\n", len(compressedData))
 
 	// Create a reader for the compressed data
-	reader, err := gzip.NewReader(bytes.NewReader(compressedData))
+	buf := bytes.NewBuffer(compressedData)
+	gzr, err := gzip.NewReader(buf)
 	if err != nil {
-		debugPrint("[DEBUG:Decompress] Error creating gzip reader: %v\n", err)
-		return nil, err
+		debugPrint("[DEBUG:Decompress] Failed to create gzip reader: %v\n", err)
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer reader.Close()
-	debugPrint("[DEBUG:Decompress] Gzip reader created successfully\n")
+	defer gzr.Close()
 
 	// Read the decompressed data
-	decompressedData, err := io.ReadAll(reader)
+	decompressed, err := io.ReadAll(gzr)
 	if err != nil {
-		debugPrint("[DEBUG:Decompress] Error reading decompressed data: %v\n", err)
-		return nil, err
+		debugPrint("[DEBUG:Decompress] Failed to read decompressed data: %v\n", err)
+		return nil, fmt.Errorf("failed to read decompressed data: %w", err)
 	}
 
-	expansionRatio := float64(len(decompressedData)) / float64(len(compressedData))
-	debugPrint("[DEBUG:Decompress] Decompression complete in %v\n", time.Since(startTime))
-	debugPrint("[DEBUG:Decompress] Compressed: %d bytes, Decompressed: %d bytes (%.2fx larger)\n",
-		len(compressedData), len(decompressedData), expansionRatio)
+	debugPrint("[DEBUG:Decompress] Decompression complete: %d bytes → %d bytes\n",
+		len(compressedData), len(decompressed))
 
-	return decompressedData, nil
+	return decompressed, nil
 }
 
 // SetDefaultAlgorithm sets the default key derivation algorithm

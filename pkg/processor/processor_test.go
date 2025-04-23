@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/atlet99/yaml-encrypter-decrypter/pkg/encryption"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,7 +27,7 @@ func TestProcessFile(t *testing.T) {
 		{
 			name:      "valid_file",
 			filename:  "testdata/test.yml",
-			key:       "test-key-12345678",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "encrypt",
 			debug:     false,
 			wantError: false,
@@ -34,7 +35,7 @@ func TestProcessFile(t *testing.T) {
 		{
 			name:      "valid file with debug",
 			filename:  "testdata/test.yml",
-			key:       "test-key-123456789012345",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "encrypt",
 			debug:     true,
 			wantError: false,
@@ -42,7 +43,7 @@ func TestProcessFile(t *testing.T) {
 		{
 			name:      "invalid file",
 			filename:  "invalid.yml",
-			key:       "test-key-12345678",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "encrypt",
 			debug:     false,
 			wantError: true,
@@ -50,7 +51,7 @@ func TestProcessFile(t *testing.T) {
 		{
 			name:      "empty file",
 			filename:  "empty.yml",
-			key:       "test-key-12345678",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "encrypt",
 			debug:     false,
 			wantError: true,
@@ -140,7 +141,7 @@ func TestProcessNode(t *testing.T) {
 				Value: "test",
 			},
 			path:      "test",
-			key:       "test-key-12345678",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "encrypt",
 			rules: []Rule{
 				{
@@ -162,7 +163,7 @@ func TestProcessNode(t *testing.T) {
 				},
 			},
 			path:      "test",
-			key:       "test-key-12345678",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "encrypt",
 			rules: []Rule{
 				{
@@ -184,7 +185,7 @@ func TestProcessNode(t *testing.T) {
 				},
 			},
 			path:      "test",
-			key:       "test-key-12345678",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "encrypt",
 			rules: []Rule{
 				{
@@ -203,7 +204,7 @@ func TestProcessNode(t *testing.T) {
 				Value: "test",
 			},
 			path:      "test",
-			key:       "test-key-12345678",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "invalid",
 			debug:     false,
 			wantError: true,
@@ -212,7 +213,7 @@ func TestProcessNode(t *testing.T) {
 			name:      "nil_node",
 			node:      nil,
 			path:      "test",
-			key:       "test-key-12345678",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "encrypt",
 			debug:     false,
 			wantError: false,
@@ -253,9 +254,12 @@ func BenchmarkProcessFile(b *testing.B) {
 		b.Fatalf("Failed to write to temp file: %v", err)
 	}
 
+	// Use a strong password that meets security requirements
+	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err := ProcessFile(tmpfile.Name(), "test-key-12345678", "encrypt", false, ".yed_config.yml")
+		err := ProcessFile(tmpfile.Name(), strongPassword, OperationEncrypt, false, ".yed_config.yml")
 		if err != nil {
 			b.Fatalf("ProcessFile failed: %v", err)
 		}
@@ -278,9 +282,12 @@ func BenchmarkProcessNode(b *testing.B) {
 
 	processedPaths := make(map[string]bool)
 
+	// Use a strong password that meets security requirements
+	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err := ProcessNode(node, "test.path", "test-key-12345678", "encrypt", rules, processedPaths, false)
+		err := ProcessNode(node, "test.path", strongPassword, "encrypt", rules, processedPaths, false)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -288,11 +295,27 @@ func BenchmarkProcessNode(b *testing.B) {
 }
 
 func BenchmarkEvaluateCondition(b *testing.B) {
+	// Prepare test cases with valid wildcard patterns and exact matches
+	testCases := []struct {
+		pattern string
+		value   string
+	}{
+		// Exact match test
+		{pattern: "test123", value: "test123"},
+		// Wildcard pattern tests
+		{pattern: "test*", value: "test123"},
+		{pattern: "*test*", value: "mytest123"},
+		{pattern: "test*end", value: "test-middle-end"},
+	}
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		result := EvaluateCondition("len(value) > 5", "test123")
+		// Rotate through test cases
+		testCase := testCases[i%len(testCases)]
+		result := EvaluateCondition(testCase.pattern, testCase.value)
 		if !result {
-			b.Fatal("EvaluateCondition returned false for valid condition")
+			b.Fatalf("EvaluateCondition returned false for valid pattern '%s' with value '%s'",
+				testCase.pattern, testCase.value)
 		}
 	}
 }
@@ -626,6 +649,9 @@ encryption:
 }
 
 func TestProcessFileErrors(t *testing.T) {
+	// Use a strong password that meets security requirements
+	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
 	tests := []struct {
 		name      string
 		filename  string
@@ -637,7 +663,7 @@ func TestProcessFileErrors(t *testing.T) {
 		{
 			name:      "invalid_file",
 			filename:  "nonexistent.yml",
-			key:       "test-key-12345678",
+			key:       strongPassword,
 			operation: "encrypt",
 			debug:     false,
 			wantError: true,
@@ -1046,6 +1072,9 @@ func TestMatchesRule(t *testing.T) {
 }
 
 func TestProcessNodeErrors(t *testing.T) {
+	// Use a strong password that meets security requirements
+	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
 	tests := []struct {
 		name      string
 		node      *yaml.Node
@@ -1060,7 +1089,7 @@ func TestProcessNodeErrors(t *testing.T) {
 			name:      "nil_node",
 			node:      nil,
 			path:      "test",
-			key:       "test-key-12345678",
+			key:       strongPassword,
 			operation: "encrypt",
 			rules: []Rule{
 				{
@@ -1079,7 +1108,7 @@ func TestProcessNodeErrors(t *testing.T) {
 				Value: "test",
 			},
 			path:      "test",
-			key:       "test-key-12345678",
+			key:       strongPassword,
 			operation: "invalid",
 			rules: []Rule{
 				{
@@ -1105,6 +1134,9 @@ func TestProcessNodeErrors(t *testing.T) {
 }
 
 func TestBufferOperations(t *testing.T) {
+	// Use a strong password that meets security requirements
+	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
 	tests := []struct {
 		name      string
 		filename  string
@@ -1116,7 +1148,7 @@ func TestBufferOperations(t *testing.T) {
 		{
 			name:      "buffer_operations",
 			filename:  "testdata/test.yml",
-			key:       "test-key-12345678",
+			key:       strongPassword,
 			operation: "encrypt",
 			debug:     false,
 			wantError: false,
@@ -1134,6 +1166,9 @@ func TestBufferOperations(t *testing.T) {
 }
 
 func TestProcessNodeWithBuffer(t *testing.T) {
+	// Use a strong password that meets security requirements
+	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
 	tests := []struct {
 		name      string
 		node      *yaml.Node
@@ -1151,7 +1186,7 @@ func TestProcessNodeWithBuffer(t *testing.T) {
 				Value: "test",
 			},
 			path:      "test",
-			key:       "test-key-12345678",
+			key:       strongPassword,
 			operation: "encrypt",
 			rules: []Rule{
 				{
@@ -1184,13 +1219,15 @@ func TestParallelProcessing(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
+	// Use a strong password that meets security requirements
+	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
 	// Define number of workers
 	workers := 5
 
 	// Define a test file and key for processing
 	testFile := filepath.Join(tempDir, "test_parallel.yml")
 	configFile := filepath.Join(tempDir, ".yed_config.yml")
-	testKey := "test-key-12345678901234567890"
 
 	// Create test content
 	testContent := `
@@ -1224,7 +1261,7 @@ rules:
 	for i := 0; i < workers; i++ {
 		go func(id int) {
 			defer wg.Done()
-			err := ProcessFile(testFile, testKey, OperationEncrypt, false, configFile)
+			err := ProcessFile(testFile, strongPassword, OperationEncrypt, false, configFile)
 			if err != nil {
 				t.Errorf("ProcessFile() error = %v, wantError %v", err, false)
 			}
@@ -1236,6 +1273,9 @@ rules:
 }
 
 func TestProcessNodeWithRules(t *testing.T) {
+	// Use a strong password that meets security requirements
+	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
 	tests := []struct {
 		name      string
 		node      *yaml.Node
@@ -1253,7 +1293,7 @@ func TestProcessNodeWithRules(t *testing.T) {
 				Value: "test",
 			},
 			path:      "test",
-			key:       "test-key-12345678",
+			key:       strongPassword,
 			operation: "encrypt",
 			rules: []Rule{
 				{
@@ -1279,6 +1319,9 @@ func TestProcessNodeWithRules(t *testing.T) {
 }
 
 func TestProcessFileWithRules(t *testing.T) {
+	// Use a strong password that meets security requirements
+	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
 	tests := []struct {
 		name      string
 		filename  string
@@ -1290,7 +1333,7 @@ func TestProcessFileWithRules(t *testing.T) {
 		{
 			name:      "process_file",
 			filename:  "testdata/test.yml",
-			key:       "test-key-12345678",
+			key:       strongPassword,
 			operation: "encrypt",
 			debug:     false,
 			wantError: false,
@@ -1314,9 +1357,9 @@ func ProcessFileHelper(filename, key, operation string, debug bool) error {
 		return fmt.Errorf("error reading file: %w", err)
 	}
 
-	// Check key length
-	if len(key) < MinKeyLength {
-		return fmt.Errorf("key length (%d) is less than minimum required (%d)", len(key), MinKeyLength)
+	// Validate password strength
+	if err := encryption.ValidatePasswordStrength(key); err != nil {
+		return fmt.Errorf("invalid password: %w", err)
 	}
 
 	// Use test rules instead of loading from config file
