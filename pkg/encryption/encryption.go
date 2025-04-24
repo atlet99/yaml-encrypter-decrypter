@@ -104,6 +104,14 @@ func init() {
 			break
 		}
 	}
+
+	// Disable debug mode for benchmarks, but keep it for regular tests
+	for _, arg := range os.Args {
+		if strings.Contains(arg, "bench") {
+			debugMode = false
+			break
+		}
+	}
 }
 
 // debugPrint outputs debug messages only when debug mode is enabled

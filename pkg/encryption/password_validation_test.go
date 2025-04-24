@@ -157,3 +157,110 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+
+// TestPasswordStrengthErrorError tests the Error method of PasswordStrengthError
+func TestPasswordStrengthErrorError(t *testing.T) {
+	tests := []struct {
+		name          string
+		err           *PasswordStrengthError
+		expectedError string
+	}{
+		{
+			name: "basic error message",
+			err: &PasswordStrengthError{
+				Message:   "Test error message",
+				Problems:  []string{"Problem 1", "Problem 2"},
+				Strength:  "Low",
+				IsCommon:  false,
+				MinLength: 15,
+				MaxLength: 64,
+			},
+			expectedError: "Test error message",
+		},
+		{
+			name: "error with empty message",
+			err: &PasswordStrengthError{
+				Message:   "",
+				Problems:  []string{"Problem 1", "Problem 2"},
+				Strength:  "Low",
+				IsCommon:  false,
+				MinLength: 15,
+				MaxLength: 64,
+			},
+			expectedError: "",
+		},
+		{
+			name: "error with no problems",
+			err: &PasswordStrengthError{
+				Message:   "Test error message",
+				Problems:  []string{},
+				Strength:  "Low",
+				IsCommon:  false,
+				MinLength: 15,
+				MaxLength: 64,
+			},
+			expectedError: "Test error message",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errorMessage := tt.err.Error()
+
+			if errorMessage != tt.expectedError {
+				t.Errorf("Error() = %v, want %v", errorMessage, tt.expectedError)
+			}
+		})
+	}
+}
+
+// TestIsPasswordBreached tests the IsPasswordBreached function
+func TestIsPasswordBreached(t *testing.T) {
+	tests := []struct {
+		name             string
+		password         string
+		expectedBreached bool
+		expectError      bool
+	}{
+		{
+			name:             "common password",
+			password:         "password123",
+			expectedBreached: true,
+		},
+		{
+			name:             "secure password",
+			password:         "P@ssw0rd_Str0ng!T3st#2024",
+			expectedBreached: false,
+		},
+		{
+			name:             "empty password",
+			password:         "",
+			expectedBreached: false, // Current implementation just checks common passwords
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isBreached, err := IsPasswordBreached(tt.password)
+
+			// Check error cases
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("IsPasswordBreached() expected error but got nil")
+				}
+				return
+			}
+
+			// No errors expected in the current implementation
+			if err != nil {
+				t.Errorf("IsPasswordBreached() unexpected error = %v", err)
+				return
+			}
+
+			// Check the breach status
+			if isBreached != tt.expectedBreached {
+				t.Errorf("IsPasswordBreached() = %v, want %v", isBreached, tt.expectedBreached)
+			}
+		})
+	}
+}

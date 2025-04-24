@@ -507,3 +507,153 @@ func TestKeyDerivation(t *testing.T) {
 		t.Errorf("Expected key length %d, got %d", PBKDF2KeyLen, len(key))
 	}
 }
+
+// TestDecryptToString tests the DecryptToString function
+func TestDecryptToString(t *testing.T) {
+	// Setup good data
+	password := "P@ssw0rd_Str0ng!T3st#2024"
+	plaintext := "This is a test plaintext for DecryptToString."
+
+	// Encrypt data for testing
+	encrypted, err := Encrypt(password, plaintext)
+	if err != nil {
+		t.Fatalf("Failed to create test encrypted data: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		password      string
+		encrypted     string
+		expectedData  string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:         "valid decryption",
+			password:     password,
+			encrypted:    encrypted,
+			expectedData: plaintext,
+		},
+		{
+			name:          "corrupted data",
+			password:      password,
+			encrypted:     "not-valid-encrypted-data",
+			expectError:   true,
+			errorContains: "illegal base64",
+		},
+		// Test that we handle very short data properly
+		{
+			name:          "very short data",
+			password:      password,
+			encrypted:     "short",
+			expectError:   true,
+			errorContains: "illegal base64",
+		},
+		// Test with a very short prefix of the actual encrypted data
+		{
+			name:          "partial encrypted data",
+			password:      password,
+			encrypted:     encrypted[:10],
+			expectError:   true,
+			errorContains: "illegal base64",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Call DecryptToString
+			result, err := DecryptToString(tt.encrypted, tt.password)
+
+			// Check error cases
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("DecryptToString() expected error but got nil")
+					return
+				}
+				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("DecryptToString() error = %v, want to contain %v", err, tt.errorContains)
+				}
+				return
+			}
+
+			// Check success cases
+			if err != nil {
+				t.Errorf("DecryptToString() unexpected error = %v", err)
+				return
+			}
+
+			// Verify the result matches the expected data
+			if result != tt.expectedData {
+				t.Errorf("DecryptToString() = %v, want %v", result, tt.expectedData)
+			}
+		})
+	}
+}
+
+// TestGetAvailableKeyDerivationAlgorithms tests the GetAvailableKeyDerivationAlgorithms function
+func TestGetAvailableKeyDerivationAlgorithms(t *testing.T) {
+	algorithms := GetAvailableKeyDerivationAlgorithms()
+
+	// We should have 3 algorithms
+	if len(algorithms) != 3 {
+		t.Errorf("GetAvailableKeyDerivationAlgorithms() returned %d algorithms, want 3", len(algorithms))
+	}
+
+	// Check that we have the expected algorithms
+	expected := map[KeyDerivationAlgorithm]bool{
+		Argon2idAlgorithm:     false,
+		PBKDF2SHA256Algorithm: false,
+		PBKDF2SHA512Algorithm: false,
+	}
+
+	for _, alg := range algorithms {
+		if _, exists := expected[alg]; !exists {
+			t.Errorf("Unexpected algorithm returned: %s", alg)
+		} else {
+			expected[alg] = true
+		}
+	}
+
+	// Verify all expected algorithms were found
+	for alg, found := range expected {
+		if !found {
+			t.Errorf("Expected algorithm %s was not returned", alg)
+		}
+	}
+}
+
+// TestSetDefaultAlgorithm tests the SetDefaultAlgorithm function
+func TestSetDefaultAlgorithm(t *testing.T) {
+	// Save the original default to restore it later
+	originalDefault := DefaultKeyDerivationAlgorithm
+	defer func() {
+		DefaultKeyDerivationAlgorithm = originalDefault
+	}()
+
+	// Set a different algorithm as default
+	SetDefaultAlgorithm(PBKDF2SHA256Algorithm)
+
+	// Check that the default was updated
+	if DefaultKeyDerivationAlgorithm != PBKDF2SHA256Algorithm {
+		t.Errorf("Default algorithm not updated, got %s, want %s",
+			DefaultKeyDerivationAlgorithm, PBKDF2SHA256Algorithm)
+	}
+
+	// Set another algorithm
+	SetDefaultAlgorithm(PBKDF2SHA512Algorithm)
+
+	// Check that the default was updated again
+	if DefaultKeyDerivationAlgorithm != PBKDF2SHA512Algorithm {
+		t.Errorf("Default algorithm not updated, got %s, want %s",
+			DefaultKeyDerivationAlgorithm, PBKDF2SHA512Algorithm)
+	}
+
+	// Restore the original default which should be Argon2id
+	SetDefaultAlgorithm(Argon2idAlgorithm)
+
+	// Check that we're back to the original
+	if DefaultKeyDerivationAlgorithm != Argon2idAlgorithm {
+		t.Errorf("Default algorithm not restored, got %s, want %s",
+			DefaultKeyDerivationAlgorithm, Argon2idAlgorithm)
+	}
+}

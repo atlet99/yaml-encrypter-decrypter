@@ -99,7 +99,7 @@ func TestEncryptDecryptMultiline(t *testing.T) {
 		t.Errorf("Style after encryption should be 0 (plain), got %v", node.Style)
 	}
 
-	// Выводим зашифрованное значение для отладки
+	// Output encrypted value for debugging
 	encryptedValue := node.Value
 	t.Logf("DEBUG: Encrypted value with AES prefix: '%s'", encryptedValue)
 	t.Logf("DEBUG: Length of encrypted value: %d", len(encryptedValue))
@@ -111,7 +111,7 @@ func TestEncryptDecryptMultiline(t *testing.T) {
 		t.Logf("DEBUG: Inside decryptFn - received value: '%s'", value)
 		t.Logf("DEBUG: Inside decryptFn - value length: %d", len(value))
 
-		// Удаляем префикс "AES256:", если он есть
+		// Remove the "AES256:" prefix if it exists
 		valueToDecrypt := value
 		if strings.HasPrefix(value, AES) {
 			valueToDecrypt = strings.TrimPrefix(value, AES)
@@ -243,7 +243,7 @@ func TestDecryptMultilinePreservesPEMFormat(t *testing.T) {
 	// Save the original style for verification
 	originalStyle := node.Style
 
-	// Ожидаемое значение после дешифрования (с реальными переносами строк вместо экранированных)
+	// Expected value after decryption (with real newlines instead of escaped ones)
 	expectedDecrypted := "-----BEGIN RSA PRIVATE KEY-----\nMIIEogIB...\nAaAaAa==\n-----END RSA PRIVATE KEY-----"
 
 	// Encrypt the value
@@ -256,7 +256,7 @@ func TestDecryptMultilinePreservesPEMFormat(t *testing.T) {
 
 	// Decrypt the value
 	err = DecryptMultiline(node, func(value string) (string, error) {
-		// Удаляем префикс "AES256:", если он есть
+		// Remove the "AES256:" prefix if it exists
 		valueToDecrypt := value
 		if strings.HasPrefix(value, AES) {
 			valueToDecrypt = strings.TrimPrefix(value, AES)
@@ -285,19 +285,19 @@ func TestDecryptCertificatesPreservesFormat(t *testing.T) {
 		name      string
 		content   string
 		nodeStyle yaml.Style
-		expected  string // Добавим ожидаемое значение после преобразования
+		expected  string // Add expected value after transformation
 	}{
 		{
 			name:      "content with escaped newlines",
 			content:   "line1\\nline2\\nline3",
 			nodeStyle: yaml.DoubleQuotedStyle,
-			expected:  "line1\nline2\nline3", // Ожидаем реальные переносы строк
+			expected:  "line1\nline2\nline3", // Expect real newlines
 		},
 		{
 			name:      "multiline quoted content",
 			content:   "first line\\nsecond line\\nthird line",
 			nodeStyle: yaml.DoubleQuotedStyle,
-			expected:  "first line\nsecond line\nthird line", // Ожидаем реальные переносы строк
+			expected:  "first line\nsecond line\nthird line", // Expect real newlines
 		},
 	}
 
@@ -337,7 +337,7 @@ func TestDecryptCertificatesPreservesFormat(t *testing.T) {
 
 			// Decrypt the value
 			err = DecryptMultiline(node, func(value string) (string, error) {
-				// Удаляем префикс "AES256:", если он есть
+				// Remove the "AES256:" prefix if it exists
 				valueToDecrypt := value
 				if strings.HasPrefix(value, AES) {
 					valueToDecrypt = strings.TrimPrefix(value, AES)
@@ -351,15 +351,15 @@ func TestDecryptCertificatesPreservesFormat(t *testing.T) {
 			})
 			assert.NoError(t, err)
 
-			// Проверка, что значение соответствует ожидаемому (с реальными переносами строк)
+			// Check that the value was transformed correctly
 			assert.Equal(t, tc.expected, node.Value)
 
-			// Проверка количества переносов строк
+			// Check number of newlines
 			expectedNewlines := strings.Count(tc.expected, "\n")
 			actualNewlines := strings.Count(node.Value, "\n")
 			assert.Equal(t, expectedNewlines, actualNewlines, "Number of newlines should match")
 
-			// Проверка стиля
+			// Check that the style was preserved
 			assert.Equal(t, originalStyle, node.Style)
 		})
 	}
@@ -725,7 +725,7 @@ func TestPreserveExactFormatting(t *testing.T) {
 		name           string
 		format         yaml.Style
 		content        string
-		expectedResult string // Добавляем ожидаемый результат
+		expectedResult string // Expected result
 		skip           bool
 	}{
 		{
@@ -807,7 +807,7 @@ func TestPreserveExactFormatting(t *testing.T) {
 
 			// Create decryption function
 			decryptFn := func(value string) (string, error) {
-				// Удаляем префикс "AES256:", если он есть
+				// Remove the "AES256:" prefix if it exists
 				valueToDecrypt := value
 				if strings.HasPrefix(value, AES) {
 					valueToDecrypt = strings.TrimPrefix(value, AES)
@@ -855,7 +855,7 @@ func TestPreserveExactFormatting(t *testing.T) {
 func TestPreserveEscapedNewlines(t *testing.T) {
 	testKey := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
 	originalValue := "line1\\nline2\\nline3"
-	// Ожидаемый результат после преобразования escape-последовательностей
+	// Expected result after transformation of escape sequences
 	expectedValue := "line1\nline2\nline3"
 
 	// Create a node with a double-quoted style
@@ -883,7 +883,7 @@ func TestPreserveEscapedNewlines(t *testing.T) {
 
 	// Decrypt the node
 	err = DecryptMultiline(node, func(value string) (string, error) {
-		// Удаляем префикс "AES256:", если он есть
+		// Remove the "AES256:" prefix if it exists
 		valueToDecrypt := value
 		if strings.HasPrefix(value, AES) {
 			valueToDecrypt = strings.TrimPrefix(value, AES)
@@ -913,7 +913,7 @@ func TestPreserveEscapedNewlines(t *testing.T) {
 
 	// Now test with a more complex case involving certificates
 	certWithEscapedNewlines := "-----BEGIN CERTIFICATE-----\\nMIIFazCCA1OgAwIBAgIUBEVwsSx0TmCLhZVDx0vlNZ0UQE8\\n-----END CERTIFICATE-----"
-	// Ожидаемый результат после преобразования
+	// Expected result after transformation
 	expectedCert := "-----BEGIN CERTIFICATE-----\nMIIFazCCA1OgAwIBAgIUBEVwsSx0TmCLhZVDx0vlNZ0UQE8\n-----END CERTIFICATE-----"
 
 	// Create a node for the certificate with double-quoted style
@@ -931,7 +931,7 @@ func TestPreserveEscapedNewlines(t *testing.T) {
 
 	// Decrypt the certificate node
 	err = DecryptMultiline(certNode, func(value string) (string, error) {
-		// Удаляем префикс "AES256:", если он есть
+		// Remove the "AES256:" prefix if it exists
 		valueToDecrypt := value
 		if strings.HasPrefix(value, AES) {
 			valueToDecrypt = strings.TrimPrefix(value, AES)
@@ -1013,8 +1013,7 @@ MzAxNTAwMDBa
 			originalStyle := node.Style
 			originalContent := node.Value
 
-			// Для строк в двойных кавычках ожидаем другой результат после дешифрации
-			// (экранированные \n заменяются на реальные переносы строк)
+			// Expected value after decryption (with real newlines instead of escaped ones)
 			expectedContent := originalContent
 			if originalStyle == yaml.DoubleQuotedStyle {
 				expectedContent = strings.Replace(expectedContent, "\\n", "\n", -1)
@@ -1067,7 +1066,7 @@ MzAxNTAwMDBa
 
 			// Decrypt the node
 			err = DecryptMultiline(node, func(value string) (string, error) {
-				// Удаляем префикс "AES256:", если он есть
+				// Remove the "AES256:" prefix if it exists
 				valueToDecrypt := value
 				if strings.HasPrefix(value, AES) {
 					valueToDecrypt = strings.TrimPrefix(value, AES)
@@ -1089,7 +1088,7 @@ MzAxNTAwMDBa
 					expectedContent, node.Value)
 			}
 
-			// Check that the style was restored
+			// Check that the style was preserved
 			if node.Style != originalStyle {
 				t.Errorf("Style not preserved after decryption. Expected %v, got %v",
 					originalStyle, node.Style)
@@ -1268,4 +1267,73 @@ func getNodeValue(mappingNode *yaml.Node, key string) *yaml.Node {
 	}
 
 	return nil
+}
+
+// TestDecryptValue tests the DecryptValue function
+func TestDecryptValue(t *testing.T) {
+	// Use a strong password that meets all validation requirements
+	testKey := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
+
+	tests := []struct {
+		name        string
+		value       string
+		key         string
+		expected    string
+		shouldError bool
+	}{
+		{
+			name:        "not encrypted value",
+			value:       "plaintext",
+			key:         testKey,
+			expected:    "plaintext",
+			shouldError: false,
+		},
+		{
+			name:        "encrypted value",
+			value:       createTestEncryptedValue(t, "secret-data", testKey),
+			key:         testKey,
+			expected:    "secret-data",
+			shouldError: false,
+		},
+		{
+			name:        "invalid encrypted value",
+			value:       AES + "invalid-base64",
+			key:         testKey,
+			expected:    "",
+			shouldError: true,
+		},
+		{
+			name:        "wrong key",
+			value:       createTestEncryptedValue(t, "secret-data", testKey),
+			key:         "D1ff3r3nt!P@ssw0rd#S9f&h27!G",
+			expected:    "",
+			shouldError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := DecryptValue(tt.value, tt.key)
+
+			// Check for error
+			if (err != nil) != tt.shouldError {
+				t.Errorf("DecryptValue() error = %v, shouldError %v", err, tt.shouldError)
+				return
+			}
+
+			// If there should be no error, check the result
+			if !tt.shouldError && result != tt.expected {
+				t.Errorf("DecryptValue() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// Helper function to create encrypted values
+func createTestEncryptedValue(t *testing.T, plaintext, key string) string {
+	encrypted, err := encryption.Encrypt(key, plaintext)
+	if err != nil {
+		t.Fatalf("Failed to encrypt test value: %v", err)
+	}
+	return AES + encrypted
 }
