@@ -70,8 +70,16 @@ func fixBase64Padding(encrypted string, debug bool) string {
 	// Special debug for tests
 	debugLog(debug, "Input string: '%s', length: %d", encrypted, len(encrypted))
 
+	// Clean the string from any non-printable characters that might be present
+	cleanedEncrypted := strings.Map(func(r rune) rune {
+		if !unicode.IsPrint(r) {
+			return -1 // Remove non-printable characters
+		}
+		return r
+	}, encrypted)
+
 	// Remove existing '=' characters at the end of the string if any
-	trimmed := strings.TrimRight(encrypted, "=")
+	trimmed := strings.TrimRight(cleanedEncrypted, "=")
 
 	// Add padding according to Base64 standard:
 	// - If length % 4 == 0, no padding needed
