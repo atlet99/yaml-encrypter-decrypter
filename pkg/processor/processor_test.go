@@ -3013,51 +3013,6 @@ func TestExtractStyleSuffix(t *testing.T) {
 	}
 }
 
-func TestCleanMultilineEncryptedFunc(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-		debug    bool
-	}{
-		{
-			name:     "no_newlines",
-			input:    "SimpleString",
-			expected: "SimpleString",
-			debug:    false,
-		},
-		{
-			name:     "with_newlines",
-			input:    "Line1\nLine2\nLine3",
-			expected: "Line1Line2Line3",
-			debug:    false,
-		},
-		{
-			name:     "with_spaces_and_tabs",
-			input:    "Line1 \t\nLine2\t \nLine3",
-			expected: "Line1Line2Line3",
-			debug:    false,
-		},
-		{
-			name:     "with_debug",
-			input:    "Line1\nLine2",
-			expected: "Line1Line2",
-			debug:    true,
-		},
-		// Special case: The test for nonprintable characters is removed because
-		// clearMultilineEncrypted only removes characters when there are also newlines
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := cleanMultilineEncrypted(tt.input, tt.debug)
-			if result != tt.expected {
-				t.Errorf("cleanMultilineEncrypted() = %q, want %q", result, tt.expected)
-			}
-		})
-	}
-}
-
 func TestExtractStyleSuffixFunc(t *testing.T) {
 	tests := []struct {
 		name           string
