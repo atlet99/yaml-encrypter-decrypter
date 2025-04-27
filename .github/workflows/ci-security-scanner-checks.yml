@@ -50,7 +50,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   nancy_check:
     name: nancy-check
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
@@ -81,7 +81,7 @@ jobs:
           nancyCommand: sleuth --loud  
   ossf_scan:
     name: openssf-scorecard
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       security-events: write
       id-token: write
