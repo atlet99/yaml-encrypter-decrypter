@@ -1,25 +1,26 @@
 encryption:
   # General settings from main config
-  unsecure_diff: false # Set to true to show actual values in diff mode
+  unsecure_diff: true # Set to true to show actual values in diff mode
   
   rules:
-    # Rules for certificate encryption  
-    - name: "public_key_rule"
+    # Rules from main config (fixed skip_axel_fix block)
+    - name: "skip_axel_fix"
+      block: "axel.fix"
+      pattern: "*"
+      action: "none"
+      description: "Skip encryption for all values in axel.fix block"
+      
+    # Certificates and their processing
+    - name: "certificates_rule"
       block: "certificates"
-      pattern: "public_key"
-      description: "Encrypt public key in PEM format"
-    - name: "certificate_chain_rule"
-      block: "certificates"
-      pattern: "certificate_chain"
-      description: "Encrypt certificate chain in PEM format"
-    - name: "openssh_key_rule"
-      block: "certificates"
-      pattern: "openssh_key"
-      description: "Encrypt OpenSSH private key"
+      pattern: "*"
+      description: "Process all certificate fields"
+    
     - name: "quoted_public_key_rule"
       block: "certificates"
       pattern: "quoted_public_key"
-      description: "Encrypt quoted public key with escaped newlines"
+      action: "none"
+      description: "Skip encryption/decryption for quoted public key"
       
     # Existing test-specific rules
     - name: "password_rule"
@@ -42,13 +43,6 @@ encryption:
       block: "ssh"
       pattern: "string_key"
       description: "Encrypt string SSH key"
-    
-    # Rules from main config (fixed skip_axel_fix block)
-    - name: "skip_axel_fix"
-      block: "axel.fix"
-      pattern: "*"
-      action: "none"
-      description: "Skip encryption for all values in axel.fix block"
     - name: "encrypt_smart_config"
       block: "smart_config"
       pattern: "**"
@@ -56,4 +50,25 @@ encryption:
     - name: "encrypt_passwords"
       block: "*"
       pattern: "pass*"
-      description: "Encrypt all password fields globally" 
+      description: "Encrypt all password fields globally"
+
+    - name: "nginx_config"
+      block: "nginx"
+      pattern: "**"
+      description: "Encrypt nginx configuration blocks"
+
+    - name: "apache_config"
+      block: "apache"
+      pattern: "**"
+      description: "Encrypt apache configuration blocks"
+
+    - name: "haproxy_config"
+      block: "haproxy"
+      pattern: "**"
+      description: "Encrypt haproxy configuration blocks"
+
+    - name: "skip_comments"
+      block: "*"
+      pattern: "**"
+      exclude: "#*"
+      description: "Skip comments in all blocks" 

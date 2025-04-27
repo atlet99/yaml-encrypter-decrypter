@@ -1,0 +1,67 @@
+# Test configuration file with various server setups
+
+nginx:
+  main_config: |
+    user nginx;
+    worker_processes auto;
+    events { worker_connections 1024; }
+    http {
+      server {
+        listen 80;
+        server_name example.com;
+        location / {
+          root /usr/share/nginx/html;
+          index index.html index.htm;
+        }
+      }
+    }
+
+  ssl_config: |
+    # SSL Configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+apache:
+  vhost_config: |
+    <VirtualHost *:80>
+      ServerAdmin webmaster@localhost
+      DocumentRoot /var/www/html
+      ErrorLog ${APACHE_LOG_DIR}/error.log
+      CustomLog ${APACHE_LOG_DIR}/access.log combined
+    </VirtualHost>
+
+  ssl_vhost: |
+    <VirtualHost *:443>
+      SSLEngine on
+      SSLCertificateFile /etc/ssl/certs/ssl-cert-snakeoil.pem
+      SSLCertificateKeyFile /etc/ssl/private/ssl-cert-snakeoil.key
+    </VirtualHost>
+
+haproxy:
+  frontend_config: |
+    frontend http-in
+      bind *:80
+      bind *:443 ssl crt /etc/ssl/certs/haproxy.pem
+      mode http
+      option httplog
+      option forwardfor
+      default_backend servers
+
+  backend_config: |
+    backend servers
+      mode http
+      balance roundrobin
+      option httpchk HEAD / HTTP/1.1\r\nHost:\ localhost
+      server web1 192.168.1.10:80 check
+      server web2 192.168.1.11:80 check
+
+certificates:
+  ssl_cert: |
+    -----BEGIN CERTIFICATE-----
+    MIIFazCCA1OgAwIBAgIUBEVwsSx0TmCLhZVDx0vlNZ0UQE8wDQYJKoZIhvcNAQEL
+    BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
+    GEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yNDAxMTcxNjIyMjVaFw0yNTAx
+    -----END CERTIFICATE----- 

@@ -21,7 +21,7 @@ permissions:
 jobs:
   trivy_scan:
     name: trivy-scans
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write

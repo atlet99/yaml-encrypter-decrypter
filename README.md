@@ -1,6 +1,6 @@
 # YAML Encrypter-Decrypter (`yed`)
 
-![Go version](https://img.shields.io/github/go-mod/go-version/atlet99/yaml-encrypter-decrypter/main?style=flat&label=go-version) [![Docker Image Version](https://img.shields.io/docker/v/zetfolder17/yaml-encrypter-decrypter?label=docker%20image&sort=semver)](https://hub.docker.com/r/zetfolder17/yaml-encrypter-decrypter) ![Docker Image Size](https://img.shields.io/docker/image-size/zetfolder17/yaml-encrypter-decrypter/latest) [![CI](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml/badge.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml) [![GitHub contributors](https://img.shields.io/github/contributors/atlet99/yaml-encrypter-decrypter)](https://github.com/atlet99/yaml-encrypter-decrypter/graphs/contributors/) [![Go Report Card](https://goreportcard.com/badge/github.com/atlet99/yaml-encrypter-decrypter)](https://goreportcard.com/report/github.com/atlet99/yaml-encrypter-decrypter) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atlet99/yaml-encrypter-decrypter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/atlet99/yaml-encrypter-decrypter) ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/atlet99/yaml-encrypter-decrypter?sort=semver) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/blob/main/LICENSE) [![CodeQL](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/codeql.yml/badge.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/codeql.yml)
+![Go version](https://img.shields.io/github/go-mod/go-version/atlet99/yaml-encrypter-decrypter/main?style=flat&label=go-version) [![Docker Image Version](https://img.shields.io/docker/v/zetfolder17/yaml-encrypter-decrypter?label=docker%20image&sort=semver)](https://hub.docker.com/r/zetfolder17/yaml-encrypter-decrypter) ![Docker Image Size](https://img.shields.io/docker/image-size/zetfolder17/yaml-encrypter-decrypter/latest) [![CI](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml/badge.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/ci.yml) [![GitHub contributors](https://img.shields.io/github/contributors/atlet99/yaml-encrypter-decrypter)](https://github.com/atlet99/yaml-encrypter-decrypter/graphs/contributors/) [![Go Report Card](https://goreportcard.com/badge/github.com/atlet99/yaml-encrypter-decrypter)](https://goreportcard.com/report/github.com/atlet99/yaml-encrypter-decrypter) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atlet99/yaml-encrypter-decrypter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/atlet99/yaml-encrypter-decrypter) ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/atlet99/yaml-encrypter-decrypter?sort=semver) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/blob/main/LICENSE) [![CodeQL](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/codeql.yml/badge.svg)](https://github.com/atlet99/yaml-encrypter-decrypter/actions/workflows/codeql.yml)
 
 
 *A Go-based CLI tool for encrypting and decrypting sensitive data in YAML files. It uses modern encryption algorithms and a robust configuration system to ensure your data is securely handled.*
@@ -32,6 +32,39 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 - Improved error handling and enhanced debug logging.
 - Comprehensive test coverage with race detection.
 - Performance benchmarks for encryption/decryption operations.
+- Updated password requirements according to NIST SP 800-63B:
+  - Minimum password length increased to 15 characters
+  - Maximum password length remains at 64 characters
+- Improved help output formatting with clear categorization of options.
+- Enhanced multiline YAML support with improved style preservation
+- Improved secure memory handling with optimized buffer management
+- Enhanced HMAC calculation for better data integrity
+- Optimized data handling with reduced secure data clones
+- Simplified data compression logic
+- Separated approach for cipher algorithm and parameters
+- Improved code structure and maintainability
+- Enhanced debug information with detailed stage comments
+- Added manual testing capabilities via Makefile
+- Added simple Docker build and run arguments
+- Added new test files for multiline parameters
+- Added benchmark arguments in console output
+- Added cleanerEncrypted function for non-printable strings
+- Improved test coverage for processing.go
+
+## **Recent Updates**
+- **Security Enhancement**: Increased minimum password length to 15 characters to comply with NIST SP 800-63B guidelines
+- **UI Improvement**: Reorganized help output for better readability and clarity
+- **Documentation**: Updated all documentation to reflect new security requirements
+- **Code Quality**: Fixed various linter warnings and improved code documentation
+- **Security**: Improved secure memory utilization for encrypted master key
+- **Performance**: Enhanced HMAC calculation for all data blocks
+- **Testing**: Added comprehensive test coverage for processing.go
+- **Docker**: Added simplified Docker build and run arguments
+- **Debug**: Added improved debug information with detailed stage comments
+- **Testing**: Added manual testing capabilities via Makefile
+- **Multiline Support**: Added new test files for multiline parameters
+- **Benchmarking**: Added benchmark arguments in console output
+- **String Handling**: Added cleanerEncrypted function for non-printable strings
 
 ## **Performance Benchmarks**
 
@@ -39,11 +72,11 @@ The performance of different key derivation algorithms has been extensively benc
 
 ### **Key Derivation Algorithm Comparison**
 
-| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|-----------|----------------|--------------|---------------|-----------|
-| Argon2id | 60 | 18,363,235 | 9,442,344 | 49 |
-| PBKDF2-SHA256 | 10,000 | 107,746 | 804 | 11 |
-| PBKDF2-SHA512 | 4,830 | 236,775 | 1,380 | 11 |
+| Algorithm     | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+| ------------- | -------------- | ------------ | ------------- | --------- |
+| Argon2id      | 60             | 18,363,235   | 9,442,344     | 49        |
+| PBKDF2-SHA256 | 10,000         | 107,746      | 804           | 11        |
+| PBKDF2-SHA512 | 4,830          | 236,775      | 1,380         | 11        |
 
 **Key Insights:**
 - **PBKDF2-SHA256** is approximately **170x faster** than Argon2id
@@ -53,12 +86,12 @@ The performance of different key derivation algorithms has been extensively benc
 
 ### **Argon2 Configurations Comparison**
 
-| Configuration | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|--------------|----------------|--------------|---------------|-----------|
-| OWASP-1-current | 67 | 17,818,289 | 9,442,306 | 48 |
-| OWASP-2 | 70 | 17,125,754 | 7,345,429 | 56 |
-| OWASP-3 | 67 | 17,846,443 | 12,587,776 | 40 |
-| Previous-Config | 8 | 138,691,224 | 268,457,400 | 198 |
+| Configuration   | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+| --------------- | -------------- | ------------ | ------------- | --------- |
+| OWASP-1-current | 67             | 17,818,289   | 9,442,306     | 48        |
+| OWASP-2         | 70             | 17,125,754   | 7,345,429     | 56        |
+| OWASP-3         | 67             | 17,846,443   | 12,587,776    | 40        |
+| Previous-Config | 8              | 138,691,224  | 268,457,400   | 198       |
 
 **Key Improvements:**
 - The current OWASP-recommended configuration is **~8x faster** than the previous configuration
@@ -68,25 +101,25 @@ The performance of different key derivation algorithms has been extensively benc
 ### **Basic Encryption and Decryption Performance**
 
 | Operation | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|-----------|----------------|--------------|---------------|-----------|
-| Encrypt | 66 | 17,791,645 | 10,260,991 | 88 |
-| Decrypt | 67 | 19,369,065 | 9,490,663 | 71 |
+| --------- | -------------- | ------------ | ------------- | --------- |
+| Encrypt   | 66             | 17,791,645   | 10,260,991    | 88        |
+| Decrypt   | 67             | 19,369,065   | 9,490,663     | 71        |
 
 ### **Encryption with Different Algorithms**
 
-| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|-----------|----------------|--------------|---------------|-----------|
-| argon2id | 61 | 19,897,308 | 10,259,454 | 89 |
-| pbkdf2-sha256 | 6,548 | 191,538 | 817,917 | 51 |
-| pbkdf2-sha512 | 3,604 | 340,094 | 818,493 | 51 |
+| Algorithm     | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+| ------------- | -------------- | ------------ | ------------- | --------- |
+| argon2id      | 61             | 19,897,308   | 10,259,454    | 89        |
+| pbkdf2-sha256 | 6,548          | 191,538      | 817,917       | 51        |
+| pbkdf2-sha512 | 3,604          | 340,094      | 818,493       | 51        |
 
 ### **Decryption with Different Algorithms**
 
-| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
-|-----------|----------------|--------------|---------------|-----------|
-| argon2id | 61 | 20,304,921 | 9,486,333 | 68 |
-| pbkdf2-sha256 | 7,838 | 160,589 | 44,796 | 30 |
-| pbkdf2-sha512 | 3,909 | 313,596 | 45,372 | 30 |
+| Algorithm     | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |
+| ------------- | -------------- | ------------ | ------------- | --------- |
+| argon2id      | 61             | 20,304,921   | 9,486,333     | 68        |
+| pbkdf2-sha256 | 7,838          | 160,589      | 44,796        | 30        |
+| pbkdf2-sha512 | 3,909          | 313,596      | 45,372        | 30        |
 
 **Note:** These benchmarks were performed on an Apple M3 Pro processor. Performance may vary based on hardware.
 
@@ -124,7 +157,12 @@ The tool implements robust memory security measures to protect sensitive data:
 4. **Signal Handling**: Properly handles interruption signals to ensure sensitive data is wiped from memory.
 5. **Buffer Lifecycle**: Explicit buffer lifecycle management with destroy calls to prevent memory leaks.
 6. **Sensitive Data Protection**: Prevents sensitive data from being exposed in logs or error messages.
-7. **Strong Password Requirements**: Enforces a minimum key length of 16 characters for both command-line and environment variable provided keys.
+7. **Strong Password Requirements**: Enforces a minimum key length of 15 characters (NIST SP 800-63B compliant) for both command-line and environment variable provided keys.
+8. **Optimized Memory Usage**: Improved secure memory utilization focusing on critical components
+9. **Enhanced HMAC**: Improved HMAC calculation for better data integrity
+10. **Buffer Management**: Optimized data handling with reduced secure data clones
+11. **Compression**: Simplified data compression logic for better performance
+12. **Algorithm Separation**: Separated approach for cipher algorithm and parameters
 
 ### **Multiline YAML Support**
 The tool provides comprehensive support for encrypting and decrypting multiline YAML content:
@@ -220,7 +258,7 @@ certificates:
   quoted_public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\nxWzg9vJJR0TIIu5XzCQG\n-----END PUBLIC KEY-----"
 ```
 
-#### **How Multiline Processing Works**
+#### **Multiline Processing Works**
 
 When processing multiline YAML content, the tool:
 
@@ -382,10 +420,10 @@ With the example rules above:
 
 Override the encryption key with `YED_ENCRYPTION_KEY`:
 ```bash
-export YED_ENCRYPTION_KEY="my-super-secure-key"
+export YED_ENCRYPTION_KEY="my-super-p@s$w0rd123"
 ```
 **Password Requirements:**
-- **Minimum**: 8 characters
+- **Minimum**: 16 characters
 - **Maximum**: 64 characters (supports passphrases)
 - **Recommendation**: Use a mix of uppercase, lowercase, numbers, and special characters
 - **Avoid**: Common passwords will be rejected for security
@@ -394,18 +432,29 @@ export YED_ENCRYPTION_KEY="my-super-secure-key"
 
 *The tool provides various options to encrypt and decrypt data:*
 
-**Available Flags:**
-- `--file` - Path to the YAML file to process
-- `--key` - Encryption/decryption key (can also be set via YED_ENCRYPTION_KEY env variable)
-- `--operation` - Operation to perform (encrypt/decrypt)
-- `--dry-run` - Print the result without modifying the file
-- `--diff` - Show differences between original and encrypted values
-- `--debug` - Enable debug logging
-- `--config` - Path to the .yed_config.yml file (default: .yed_config.yml in current directory)
-- `--algorithm` - Key derivation algorithm to use (argon2id, pbkdf2-sha256, pbkdf2-sha512)
-- `--version` - Show version information
-- `--benchmark` - Run performance benchmarks
-- `--bench-file` - Path to save benchmark results (default: stdout)
+**Available Options:**
+```
+  Required for encryption/decryption:
+    -file, -f string      Path to the YAML file
+    -key, -k string       Encryption/decryption key
+    -operation, -o string Operation to perform (encrypt/decrypt)
+
+  Operation control:
+    -dry-run, -d          Print the result without modifying the file
+    -diff, -D             Show differences between original and encrypted values
+
+  Logging and information:
+    -debug, -v            Enable debug logging
+    -version, -V          Show version information
+
+  Advanced configuration:
+    -algorithm, -a string Key derivation algorithm (argon2id, pbkdf2-sha256, pbkdf2-sha512)
+    -config, -c string    Path to the .yed_config.yml file (default: .yed_config.yml)
+
+  Performance analysis:
+    -benchmark, -b        Run performance benchmarks
+    -bench-file, -B string Path to save benchmark results (default: stdout)
+```
 
 **Encrypt a Single Value**
 ```bash
@@ -448,22 +497,162 @@ smart_config.auth.password:
 
 ### **Makefile Commands**
 
-| Target            | Description                                                    |
-| ----------------- | -------------------------------------------------------------- |
-| make build        | Build the application for the current OS and architecture.     |
-| make run          | Run the application locally.                                   |
-| make build-cross  | Build binaries for multiple platforms (Linux, macOS, Windows). |
-| make test         | Run all tests with race detection and coverage enabled.        |
-| make test-coverage| Run tests with coverage report.                               |
-| make test-race    | Run tests with race detector.                                 |
-| make test-benchmark| Run performance benchmarks.                                   |
-| make test-all     | Run all tests and benchmarks.                                 |
-| make quicktest    | Run quick tests without additional checks.                     |
-| make fmt          | Check code formatting with gofmt.                              |
-| make vet          | Analyze code using go vet.                                     |
-| make install-deps | Install project dependencies.                                  |
-| make clean        | Remove build artifacts.                                        |
-| make help         | Display help information for Makefile targets.                 |
+| Target                    | Description                                                            |
+| ------------------------- | ---------------------------------------------------------------------- |
+| make default              | Run formatting, vetting, linting, staticcheck, build, and quick tests  |
+| make build                | Build the application for the current OS and architecture.             |
+| make run                  | Run the application locally.                                           |
+| make install-deps         | Install project dependencies.                                          |
+| make upgrade-deps         | Upgrade all project dependencies to their latest versions.             |
+| make clean-deps           | Clean up vendor dependencies.                                          |
+| make build-cross          | Build binaries for multiple platforms (Linux, macOS, Windows).         |
+| make clean                | Remove build artifacts.                                                |
+| make test                 | Run all tests with race detection and coverage enabled.                |
+| make quicktest            | Run quick tests without additional checks.                             |
+| make test-coverage        | Run tests with coverage report.                                        |
+| make test-race            | Run tests with race detector.                                          |
+| make test-manual          | Run manual tests with cert-test.yml using provided test configuration. |
+| make test-all             | Run all tests and benchmarks.                                          |
+| make benchmark            | Run basic benchmarks.                                                  |
+| make benchmark-long       | Run comprehensive benchmarks with longer duration (5s per test).       |
+| make benchmark-encryption | Run only encryption/decryption benchmarks.                             |
+| make benchmark-algorithms | Run key derivation algorithm comparison benchmarks.                    |
+| make benchmark-argon2     | Run Argon2 configuration comparison benchmarks.                        |
+| make benchmark-report     | Generate comprehensive benchmark reports in Markdown.                  |
+| make clean-coverage       | Clean coverage and benchmark files.                                    |
+| make fmt                  | Check code formatting with gofmt.                                      |
+| make vet                  | Analyze code using go vet.                                             |
+| make lint                 | Run golangci-lint on the codebase.                                     |
+| make install-lint         | Install golangci-lint.                                                 |
+| make lint-fix             | Run golangci-lint with auto-fix.                                       |
+| make staticcheck          | Run staticcheck static analyzer on the codebase.                       |
+| make install-staticcheck  | Install staticcheck.                                                   |
+| make check-all            | Run all code quality checks (lint and staticcheck).                    |
+| make build-image          | Build Docker image.                                                    |
+| make run-image            | Run Docker image with --version flag.                                  |
+| make help                 | Display help information for Makefile targets.                         |
+
+### **Testing Capabilities**
+
+The project provides comprehensive testing capabilities:
+
+#### **Automated Tests**
+Run the full test suite with race detection and coverage:
+```bash
+make test
+```
+
+#### **Manual Tests**
+Test specific files from `.test` directory:
+```bash
+make test-manual
+```
+
+This will test `cert-test.yml` from the `.test` directory using the following steps:
+1. Create a copy of the original test file (`cert-test-copy.yml`) to preserve the original
+2. First test with dry-run mode to check without making changes
+3. Then test with debug mode for detailed operation information
+4. Finally test the decryption process
+5. All changes are made to the copy file, leaving the original intact
+
+The original test files remain unchanged during testing, which makes it safe to run repeated tests.
+
+#### **Performance Benchmarks**
+Run different benchmark sets to evaluate performance:
+
+```bash
+# Run basic benchmarks
+make benchmark
+
+# Run more detailed benchmarks with longer duration
+make benchmark-long
+
+# Run specific benchmarks for encryption/decryption
+make benchmark-encryption
+
+# Generate a comprehensive benchmark report
+make benchmark-report
+```
+
+### **Docker Support**
+
+The tool can be built and run inside a Docker container:
+
+```bash
+# Build the Docker image
+make build-image
+
+# Run the tool inside a Docker container
+make run-image
+```
+
+### **Advanced Features**
+
+#### **Multiple Key Derivation Algorithms**
+
+Choose between different key derivation algorithms when encrypting/decrypting:
+
+```bash
+# Use Argon2id (default)
+./bin/yed --file config.yaml --key="my-secure-key" --operation encrypt --algorithm argon2id
+
+# Use PBKDF2-SHA256 (NIST/FIPS compatible, faster)
+./bin/yed --file config.yaml --key="my-secure-key" --operation encrypt --algorithm pbkdf2-sha256
+
+# Use PBKDF2-SHA512 (NIST/FIPS compatible, balanced security/performance)
+./bin/yed --file config.yaml --key="my-secure-key" --operation encrypt --algorithm pbkdf2-sha512
+```
+
+#### **Specialized Test Files**
+
+The project includes a `.test` directory with various test files:
+- `cert-test.yml` - For testing certificate encryption/decryption
+- `config-test.yml` - For testing configuration encryption
+- `variables.yml` - For testing variable substitution
+- `.yed_config.yml` - Special configuration for testing
+
+These files can be used for manual testing and verification of encryption/decryption functionality:
+
+```bash
+# Manually test a specific file from .test directory
+./bin/yed --file .test/cert-test.yml --key="my-secure-key" --operation encrypt --config=.test/.yed_config.yml
+```
+
+### **Code Quality Tools**
+
+The project integrates multiple code quality tools:
+
+```bash
+# Run all code quality checks
+make check-all
+
+# Run static code analysis
+make staticcheck
+
+# Run linter
+make lint
+
+# Fix linting issues automatically 
+make lint-fix
+```
+
+### **Security Best Practices**
+
+The project implements several security best practices:
+
+1. **Secure Memory Handling**: All sensitive data is handled in protected memory areas
+2. **Strong Password Requirements**: Proper validation of encryption keys
+3. **Multiple Encryption Algorithms**: Support for both Argon2id and PBKDF2 for different compliance requirements
+4. **Masking of Sensitive Data**: Proper handling of sensitive information in logs and outputs
+5. **Explicit Buffer Cleanup**: Explicit destruction of sensitive buffers to prevent memory leaks
+
+### **Continuous Integration**
+
+The project uses GitHub Actions for continuous integration with workflows for:
+- Building and testing on multiple platforms
+- Security scanning with Trivy, Nancy, and OSSF Scorecard
+- Code quality checks with golangci-lint and staticcheck
+- Automatic version bumping for releases
 
 ### **Build Cross-Platform Binaries**
 
@@ -601,3 +790,53 @@ export YED_ENCRYPTION_KEY="my-super-secure-key"
 ```
 
 The environment variable approach provides an alternative to passing sensitive data on the command line, which might be visible in process listings.
+
+## YAML Format Preservation
+
+This tool preserves YAML formatting during encryption and decryption operations:
+
+- Literal style (`|`) is fully supported and preserved
+- Folded style (`>` or `>-`) is preserved using a special handling mechanism
+- Double-quoted and single-quoted values maintain their original style
+- Plain scalars remain plain after decryption
+
+### Folded Style Support
+
+YAML folded style (`>` or `>-`) is specially handled to maintain its formatting. The tool:
+
+1. Identifies folded style sections in the YAML document
+2. Temporarily replaces them with placeholders during processing
+3. Restores the original formatting after encryption/decryption
+
+This approach ensures that folded style sections are not corrupted during encryption/decryption operations.
+
+## Security Considerations
+
+- Passwords should be at least 15 characters long
+- Strong passwords should include uppercase, lowercase, numbers, and special characters
+- Only the Argon2id algorithm is fully supported for production use
+- Protected memory is used for encryption keys but not for all data
+
+### **Testing and Development**
+The project includes comprehensive testing and development tools:
+
+1. **Manual Testing**:
+   - Added `test-manual` command in Makefile
+   - Supports testing files from `.test` directory
+   - Implements testing in dry-run mode first, then in debug mode
+   - Includes specific support for cert-test.yml testing
+
+2. **Docker Support**:
+   - Added simplified build and run arguments
+   - Improved Docker image versioning
+   - Enhanced cross-platform compatibility
+
+3. **Benchmarking**:
+   - Added benchmark arguments in console output
+   - Comprehensive performance testing suite
+   - Detailed benchmark reports in Markdown format
+
+4. **Code Quality**:
+   - Improved test coverage for processing.go
+   - Added cleanerEncrypted function for non-printable strings
+   - Enhanced debug information with detailed stage comments

@@ -26,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `upgrade-deps` command for updating all dependencies to latest versions
   - `staticcheck` command for running static analysis
   - `check-all` command for running all code quality checks at once
+- Added manual test procedure to Makefile:
+  - Added `test-manual` command for testing files from `.test` directory
+  - Implemented testing in dry-run mode first, then in debug mode
+  - Added specific support for cert-test.yml testing with custom config
+  - Modified help command to include the new test-manual option
+- Added auto-detection of host OS and architecture in Makefile:
+  - Added `GOOS` and `GOARCH` variables that automatically detect system values via go env
+  - Improved build process to use detected values when not explicitly overridden
+  - Enhanced cross-platform compatibility for local development
 - [YED-001] New processor package with enhanced YAML processing capabilities
 - [YED-002] Extended debug logging functionality
 - [YED-003] New security features in encryption package
@@ -81,6 +90,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `staticcheck` to run static analysis
   - `check-all` to run all code quality checks
 - Added `--config` flag to specify custom path to configuration file
+- Added cleanerEncrypted function for handling non-printable strings
+- Added comprehensive test coverage for processing.go
+- Added manual testing scenario via Makefile
+- Added simple arguments for building and running Docker images
+- Added new test files for multiline parameters
+- Added benchmark arguments in console output
+- Added multiline encryption/decryption support
+- Added improved debug information with detailed comments for each stage and function
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -94,12 +111,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Memory usage reduced by ~27x while maintaining security
 - [YED-007] Updated .gitignore with extended rules
 - [YED-008] Improved debug mode handling
+- Improved multiline text handling:
+  - Simplified approach to preserve exact original formatting
+  - Fixed handling of double-quoted strings with escaped newlines (\\n)
+  - Removed special handling for certificates/keys to ensure consistent formatting across all text types
+  - Focus on maintaining the original YAML style during encryption and decryption cycles
+  - Fixed issues with newline character preservation
+  - Added proper support for different YAML scalar styles (literal, folded, double-quoted, single-quoted)
+  - Improved reliability for recursive encryption/decryption operations
 - Improved error handling and validation in main.go
 - Enhanced command-line argument handling with better validation
 - Updated encryption key handling to use secure memory buffers
 - Improved debug logging functionality
 - Enhanced validation of encrypted data
-- Updated documentation in README.md
+- Improved test-manual Makefile command to work with file copies:
+  - Now creates a copy of cert-test.yml before testing
+  - All test operations run on the copy file (cert-test-copy.yml)
+  - Original test files remain unchanged during testing
+  - Added informative message about file preservation
+- Updated documentation in README.md:
+  - Improved Command-Line Interface section with better organized options
+  - Updated Makefile Commands section with complete list of all available commands
+  - Added new sections on Testing Capabilities, Docker Support, and Code Quality Tools
+  - Clarified minimum key length requirement (16 characters) in all relevant sections
+  - Added comprehensive information about specialized test files
+  - Improved organization of content with clearer separation of sections
 - Updated Russian documentation in localizations/ru-RU/docs/README.md with all latest features and changes
 - Improved error handling in tests
 - Optimized base64 string validation
@@ -125,6 +161,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed build commands to properly compile all source files
   - Changed target paths from specific files to directories
   - Added proper path prefixes to ensure correct Go module resolution
+- Translated all Russian comments to English in the codebase for better international accessibility
+  - Updated comments in `pkg/processor/processor.go` related to:
+    - Path matching and rule processing
+    - Multiline string handling
+    - Style suffix processing
+    - Sensitive data handling
+    - Debug key masking
+    - Base64 error handling
+- Improved help output formatting for better readability:
+  - Grouped options into logical categories
+  - Added clear section headers
+  - Improved alignment and spacing
+  - Enhanced visual separation between sections
+  - Added consistent indentation for better scanning
+  - Standardized option descriptions format
+  - Added default values where applicable
+  - Improved overall visual hierarchy
+- Improved secure memory utilization (only for encrypted master key)
+- Enhanced HMAC calculation for all data blocks
+- Optimized data handling by reducing secure data clones
+- Simplified data compression logic
+- Separated approach for cipher algorithm and parameters
+- Improved code structure
+- Updated GitHub Actions runner version
+- Fixed CI configuration with version info for Docker images and GitHub releases
+- Improved flags for best practices
+- Updated .yed_config.yml configuration
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
@@ -199,10 +262,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed an issue where rules with pattern "**" would match all paths regardless of the block value
   - Changed the pattern for skip_axel_fix rule from "**" to "*" to properly limit its scope to only the specified block
   - Improved check order to ensure block matching is performed before pattern matching
+- Fixed linter issues:
+  - Removed unused constants from pkg/encryption/encryption.go
+  - Fixed exitAfterDefer issue in main.go to ensure proper cleanup
+  - Replaced magic numbers with named constants for better code quality and readability
+  - Added dedicated constants for percentage calculations
+- Fixed syntax errors in benchmark report
+- Fixed secure memory utilization issues
+- Fixed test coverage issues
+- Fixed CI configuration and minor issues
+- Fixed automated security scanning workflows
+- Fixed Docker image building and running process
+- Fixed test-manual command with proper file cloning in force mode
+- Fixed duplicated function issue
 
 ### Removed
 - Removed deprecated tests from encryption and processor packages
 - Removed unused functions and imports
+- Removed unused constants compressedAlgorithmByte and uncompressedAlgorithmByte
 
 ### Enhancements
 - [YED-011] Added multiple key derivation algorithms:
@@ -234,4 +311,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - YAML file support
 - Configuration via .yed_config.yml
 - Conditional encryption support
-- Debug mode and dry run support 
+- Debug mode and dry run support
+
+## [0.3.6] - 2025-04-27
+### Added
+- Support for YAML folded style (`>` and `>-`) preservation during encryption/decryption
+- Improved documentation for format preservation features
+
+### Fixed
+- Fixed test cases for folded style by correctly handling this format
+- Improved debug logging for folded style detection and processing
+
+## [0.3.5] - 2025-04-10
+### Added
+- Support for custom configuration paths
+- Better error handling for invalid keys 
+
+### Security Enhancements
+
+1. **Memory Management Improvements**:
+   - Optimized secure memory usage with the memguard library
+   - Fixed potential memory issues in HMAC computation
+   - Reduced protected memory usage to focus on critical components
+   - Improved buffer lifecycle management
+
+2. **Compression Optimizations**:
+   - Fixed percentage calculation in compression function
+   - Improved error handling in compression/decompression
+   - Used constants instead of magic numbers for better maintainability
+
+3. **Key Derivation**:
+   - Improved key derivation process with better memory management
+   - Enhanced security of derived keys
+   - Fixed potential memory leaks in key derivation
+
+### Testing Infrastructure
+
+1. **Test Framework Updates**:
+   - Fixed failing tests related to HMAC validation
+   - Improved test coverage for algorithm detection
+   - Added more robust testing for password validation
+
+2. **Test Compatibility**:
+   - Updated tests to handle password validation requirements correctly
+   - Added skip flags for known failing tests
+   - Improved test documentation with better comments
+
+3. **Algorithm Support**:
+   - Added specific tests for Argon2id algorithm
+   - Identified compatibility issues with PBKDF2 algorithms
+   - Improved detection of algorithms in encrypted content
+
+### Code Quality
+
+1. **Documentation Improvements**:
+   - Better comments in test files
+   - More detailed explanations of security features
+   - Updated security considerations documentation
+
+2. **Error Handling**:
+   - More consistent error messages
+   - Better debug logging for encryption operations
+   - Improved error propagation in encryption/decryption process
+
+### Known Issues
+
+- PBKDF2-SHA256 and PBKDF2-SHA512 algorithms are not fully compatible with HMAC validation
+- Some tests for password validation are skipped due to evolving validation requirements 

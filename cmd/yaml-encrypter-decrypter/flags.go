@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/atlet99/yaml-encrypter-decrypter/pkg/encryption"
+	"github.com/awnumar/memguard"
 )
 
 // CLI flags
@@ -26,47 +27,142 @@ type appFlags struct {
 
 // parseFlags parses command line arguments and returns an appFlags struct
 func parseFlags() appFlags {
-	filename := flag.String("file", "", "Path to the YAML file")
-	key := flag.String("key", "", "Encryption/decryption key")
-	operation := flag.String("operation", "", "Operation to perform (encrypt/decrypt)")
-	dryRun := flag.Bool("dry-run", false, "Print the result without modifying the file")
-	diff := flag.Bool("diff", false, "Show differences between original and encrypted values")
-	debug := flag.Bool("debug", false, "Enable debug logging")
-	showVersion := flag.Bool("version", false, "Show version information")
-	algorithm := flag.String("algorithm", "", "Key derivation algorithm to use (argon2id, pbkdf2-sha256, pbkdf2-sha512)")
-	benchmark := flag.Bool("benchmark", false, "Run performance benchmarks")
-	benchFile := flag.String("bench-file", "", "Path to save benchmark results (default: stdout)")
-	configPath := flag.String("config", "", "Path to the .yed_config.yml file (default: .yed_config.yml in current directory)")
+	// Define flags with short and long forms
+	var flags appFlags
+
+	// Required flags for main operation
+	flag.StringVar(&flags.filename, "file", "", "Path to the YAML file")
+	flag.StringVar(&flags.filename, "f", "", "")
+
+	flag.StringVar(&flags.key, "key", "", "Encryption/decryption key")
+	flag.StringVar(&flags.key, "k", "", "")
+
+	flag.StringVar(&flags.operation, "operation", "", "Operation to perform (encrypt/decrypt)")
+	flag.StringVar(&flags.operation, "o", "", "")
+
+	// Operation control flags
+	flag.BoolVar(&flags.dryRun, "dry-run", false, "Print the result without modifying the file")
+	flag.BoolVar(&flags.dryRun, "d", false, "")
+
+	flag.BoolVar(&flags.diff, "diff", false, "Show differences between original and encrypted values")
+	flag.BoolVar(&flags.diff, "D", false, "")
+
+	// Logging and information flags
+	flag.BoolVar(&flags.debug, "debug", false, "Enable debug logging")
+	flag.BoolVar(&flags.debug, "v", false, "")
+
+	flag.BoolVar(&flags.showVersion, "version", false, "Show version information")
+	flag.BoolVar(&flags.showVersion, "V", false, "")
+
+	// Advanced configuration flags
+	flag.StringVar(&flags.algorithm, "algorithm", "", "Key derivation algorithm to use (argon2id, pbkdf2-sha256, pbkdf2-sha512)")
+	flag.StringVar(&flags.algorithm, "a", "", "")
+
+	flag.StringVar(&flags.configPath, "config", "", "Path to the .yed_config.yml file (default: .yed_config.yml in current directory)")
+	flag.StringVar(&flags.configPath, "c", "", "")
+
+	// Performance analysis flags
+	flag.BoolVar(&flags.benchmark, "benchmark", false, "Run performance benchmarks")
+	flag.BoolVar(&flags.benchmark, "b", false, "")
+
+	flag.StringVar(&flags.benchFile, "bench-file", "", "Path to save benchmark results (default: stdout)")
+	flag.StringVar(&flags.benchFile, "B", "", "")
+
+	// Override default usage
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "A tool for encrypting and decrypting YAML files while preserving formatting.")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  yaml-encrypter-decrypter [options] <file>")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		fmt.Fprintln(os.Stderr, "  -operation, -o       <string>        Operation to perform (encrypt/decrypt)")
+		fmt.Fprintln(os.Stderr, "  -key, -k             <string>        Encryption/decryption key")
+		fmt.Fprintln(os.Stderr, "  -diff, -D                            Show differences between original and processed values")
+
+		// Print flags in organized groups
+		fmt.Fprintln(os.Stderr, "Required Options:")
+		fmt.Fprintln(os.Stderr, "  -file, -f 		<string>	Path to the YAML file to process")
+		fmt.Fprintln(os.Stderr, "  -key, -k		  <string>		Encryption/decryption key (min 16 chars)")
+		fmt.Fprintln(os.Stderr, "  -operation, -o 	<string>	Operation to perform (encrypt/decrypt)")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "Operation Control:")
+		fmt.Fprintln(os.Stderr, "  -dry-run, -d          		Preview changes without modifying the file")
+		fmt.Fprintln(os.Stderr, "  -diff, -D             		Show differences between original and processed values")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "Logging and Information:")
+		fmt.Fprintln(os.Stderr, "  -debug, -v            		Enable detailed debug logging")
+		fmt.Fprintln(os.Stderr, "  -version, -V          		Display version and build information")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "Advanced Configuration:")
+		fmt.Fprintln(os.Stderr, "  -algorithm, -a 	<string> 	Key derivation algorithm:")
+		fmt.Fprintln(os.Stderr, "                         		argon2id (default), pbkdf2-sha256, pbkdf2-sha512")
+		fmt.Fprintln(os.Stderr, "  -config, -c 		<string>   	Path to config file (default: .yed_config.yml)")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "Performance Analysis:")
+		fmt.Fprintln(os.Stderr, "  -benchmark, -b         		Run encryption/decryption performance tests")
+		fmt.Fprintln(os.Stderr, "  -bench-file, -B 	<string> 	Save benchmark results to file (default: stdout)")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "Environment Variables:")
+		fmt.Fprintln(os.Stderr, "  YED_ENCRYPTION_KEY     		Alternative way to provide encryption key")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "Examples:")
+		fmt.Fprintln(os.Stderr, "  Encrypt a file:     yed -f config.yml -k 'your-secure-key' -o encrypt")
+		fmt.Fprintln(os.Stderr, "  Decrypt a file:     yed -f config.yml -k 'your-secure-key' -o decrypt")
+		fmt.Fprintln(os.Stderr, "  Preview changes:    yed -f config.yml -k 'your-secure-key' -o encrypt -d")
+		fmt.Fprintln(os.Stderr, "  Show differences:   yed -f config.yml -k 'your-secure-key' -o encrypt -D")
+		fmt.Fprintln(os.Stderr, "")
+
+		fmt.Fprintln(os.Stderr, "For more information, visit: https://github.com/atlet99/yaml-encrypter-decrypter")
+	}
+
 	flag.Parse()
 
-	return appFlags{
-		filename:    *filename,
-		key:         *key,
-		operation:   *operation,
-		dryRun:      *dryRun,
-		diff:        *diff,
-		debug:       *debug,
-		showVersion: *showVersion,
-		algorithm:   *algorithm,
-		benchmark:   *benchmark,
-		benchFile:   *benchFile,
-		configPath:  *configPath,
+	// Validate algorithm if provided
+	if flags.algorithm != "" {
+		_, err := validateAlgorithm(flags.algorithm)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid algorithm: %v\n", err)
+			os.Exit(1)
+		}
 	}
+
+	return flags
 }
 
 // getEncryptionKey returns the encryption key from flag or environment variable
 func getEncryptionKey(flagKey string, debug bool) (string, error) {
+	// Create secure buffer for key
+	keyBuf := memguard.NewBuffer(0)
+	defer keyBuf.Destroy()
+
 	var key string
 
 	if flagKey != "" {
-		key = flagKey
+		// Copy key to secure buffer
+		keyBuf = memguard.NewBufferFromBytes([]byte(flagKey))
+		if keyBuf == nil {
+			return "", fmt.Errorf("failed to create secure buffer for key")
+		}
+		key = string(keyBuf.Bytes())
 	} else {
 		envKey := os.Getenv("YED_ENCRYPTION_KEY")
 		if envKey != "" {
 			if debug {
 				fmt.Println("[DEBUG] Using encryption key from YED_ENCRYPTION_KEY environment variable")
 			}
-			key = envKey
+			// Copy key from environment variable to secure buffer
+			keyBuf = memguard.NewBufferFromBytes([]byte(envKey))
+			if keyBuf == nil {
+				return "", fmt.Errorf("failed to create secure buffer for key")
+			}
+			key = string(keyBuf.Bytes())
 		}
 	}
 
@@ -74,7 +170,7 @@ func getEncryptionKey(flagKey string, debug bool) (string, error) {
 		return "", fmt.Errorf("error: encryption key not provided")
 	}
 
-	// Validate key length
+	// Check key length
 	if len(key) < encryption.PasswordRecommendedLength {
 		return "", fmt.Errorf("error: encryption key must be at least %d characters long for adequate security", encryption.PasswordRecommendedLength)
 	}
@@ -82,22 +178,9 @@ func getEncryptionKey(flagKey string, debug bool) (string, error) {
 	return key, nil
 }
 
-// validateAlgorithm validates the algorithm flag and returns the corresponding KeyDerivationAlgorithm
+// validateAlgorithm validates the algorithm string and returns the corresponding KeyDerivationAlgorithm
 func validateAlgorithm(algorithm string) (encryption.KeyDerivationAlgorithm, error) {
-	if algorithm == "" {
-		return "", nil
-	}
-
-	switch strings.ToLower(algorithm) {
-	case "argon2id":
-		return encryption.Argon2idAlgorithm, nil
-	case "pbkdf2-sha256":
-		return encryption.PBKDF2SHA256Algorithm, nil
-	case "pbkdf2-sha512":
-		return encryption.PBKDF2SHA512Algorithm, nil
-	default:
-		return "", fmt.Errorf("error: invalid algorithm '%s'. Valid options are: argon2id, pbkdf2-sha256, pbkdf2-sha512", algorithm)
-	}
+	return encryption.ValidateAlgorithm(algorithm)
 }
 
 // displayVersion prints the version information in a formatted way

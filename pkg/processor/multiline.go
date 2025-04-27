@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/atlet99/yaml-encrypter-decrypter/pkg/encryption"
@@ -19,15 +20,87 @@ const (
 	FoldedStyle
 )
 
-// Constants for various paths and markers
+// Constants for various tags
 const (
-	// PathQuotedPublicKey is the path for the quoted public key in certificates
-	PathQuotedPublicKey = "certificates.quoted_public_key"
-	// MarkerQuotedKeyWithEscapes indicates a quoted key with escaped newlines
-	MarkerQuotedKeyWithEscapes = "|quoted_key_with_escapes"
-	// MarkerEscapedNewlines indicates a node with escaped newlines
-	MarkerEscapedNewlines = "|escaped_newlines"
+	// TagInt is the YAML tag for integer values
+	TagInt = "!!int"
+	// TagStr is the YAML tag for string values
+	TagStr = "!!str"
 )
+
+// Style suffix constants
+const (
+	// Style suffix constants for preserving YAML style information
+	LiteralStyleSuffix      = "|literal"
+	FoldedStyleSuffix       = "|folded"
+	DoubleQuotedStyleSuffix = "|double_quoted"
+	SingleQuotedStyleSuffix = "|single_quoted"
+	PlainStyleSuffix        = "|plain"
+)
+
+// Constants for configuration file detection
+const (
+	// MinConfigLines is the minimum number of lines for a configuration file
+	MinConfigLines = 2
+	// MinIndentedLines is the minimum number of indented lines for a configuration file
+	MinIndentedLines = 1
+	// MinDirectives is the minimum number of directives for a configuration file
+	MinDirectives = 2
+)
+
+// ConfigFilePatterns contains patterns that indicate configuration file content
+var ConfigFilePatterns = []string{
+	"server {", "location", "http {", // Nginx patterns
+	"<VirtualHost", "<Directory", "<Location", // Apache patterns
+	"upstream", "proxy_pass", // Common proxy patterns
+	"listen", "server_name", // Common server patterns
+	"worker_processes", "worker_connections", // Process/connection settings
+	"root", "index", // Common web server directives
+}
+
+// isConfigurationContent checks if a string contains configuration file patterns
+func isConfigurationContent(content string) bool {
+	// Skip empty content
+	if len(content) == 0 {
+		return false
+	}
+
+	// Check for common configuration patterns
+	for _, pattern := range ConfigFilePatterns {
+		if strings.Contains(content, pattern) {
+			return true
+		}
+	}
+
+	// Additional heuristics for configuration files
+	lines := strings.Split(content, "\n")
+	if len(lines) > MinConfigLines {
+		indentedLines := 0
+		directiveCount := 0
+
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if len(trimmed) == 0 {
+				continue
+			}
+
+			// Count indented lines
+			if len(line) > len(trimmed) {
+				indentedLines++
+			}
+
+			// Count lines that look like directives (key value pairs)
+			if strings.Contains(trimmed, " ") && !strings.HasPrefix(trimmed, "#") {
+				directiveCount++
+			}
+		}
+
+		// If we have multiple indented lines and directives, it's likely a config file
+		return indentedLines > MinIndentedLines && directiveCount > MinDirectives
+	}
+
+	return false
+}
 
 // DetectMultilineStyle detects the multiline style of a YAML node
 func DetectMultilineStyle(node *yaml.Node) MultilineStyle {
@@ -48,79 +121,107 @@ func DetectMultilineStyle(node *yaml.Node) MultilineStyle {
 	return NotMultiline
 }
 
-// EncryptMultiline encrypts a multiline scalar node
+// EncryptMultiline encrypts a multiline scalar node while preserving its original style
 func EncryptMultiline(node *yaml.Node, key string, debug bool) error {
 	if node == nil || node.Kind != yaml.ScalarNode {
 		return nil
 	}
 
-	// Check for multiline style (literal or folded)
-	style := DetectMultilineStyle(node)
-
-	// Also check if this is a node with DoubleQuotedStyle that may contain escaped newlines
-	hasEscapedNewlines := false
-	isMultilineQuotedStyle := false
-
-	if node.Style == yaml.DoubleQuotedStyle {
-		hasEscapedNewlines = strings.Contains(node.Value, "\\n")
-		isMultilineQuotedStyle = hasEscapedNewlines && hasCertificateKeyPatterns(node.Value)
-	}
-
-	// Only continue if this is a multiline node or has escaped newlines in DoubleQuotedStyle
-	if style == NotMultiline && !isMultilineQuotedStyle {
+	// Skip encryption for folded style (>) - it's not supported
+	if node.Style == yaml.FoldedStyle {
+		debugLog(debug, "WARNING: YAML folded style (> or >-) is not supported for encryption. Please use literal style (|) instead.")
 		return nil
 	}
 
-	// Store the original style
+	// Store the original style and tag
 	originalStyle := node.Style
+	originalTag := node.Tag
 
 	// Add debug log
-	debugLog(debug, "Encrypting multiline node with style %v, hasEscapedNewlines=%v", originalStyle, hasEscapedNewlines)
+	debugLog(debug, "Encrypting node with style %v", originalStyle)
+
+	// Special handling for double-quoted text to preserve escaped new lines
+	nodeValue := node.Value
+	if originalStyle == yaml.DoubleQuotedStyle {
+		nodeValue = preserveQuotedText(nodeValue, originalStyle)
+	}
 
 	// Encrypt the value
-	encryptedValue, err := encryption.Encrypt(key, node.Value)
+	encryptedValue, err := encryption.Encrypt(key, nodeValue)
 	if err != nil {
 		return err
 	}
 
-	// Set the encrypted value with the AES prefix
-	node.Value = AES + encryptedValue
-
-	// Add style marker for nodes with escaped newlines
-	if hasEscapedNewlines || node.Style == yaml.DoubleQuotedStyle {
-		// Add a marker to indicate this was in DoubleQuotedStyle
-		node.Value += MarkerEscapedNewlines
-		debugLog(debug, "Added escaped_newlines marker")
+	// Add style suffix to preserve original style information
+	var styleSuffix string
+	switch originalStyle {
+	case yaml.LiteralStyle:
+		styleSuffix = LiteralStyleSuffix
+	case yaml.DoubleQuotedStyle:
+		styleSuffix = DoubleQuotedStyleSuffix
+	case yaml.SingleQuotedStyle:
+		styleSuffix = SingleQuotedStyleSuffix
+	default:
+		styleSuffix = PlainStyleSuffix
 	}
 
-	// Reset the style to plain (0 is no style, which is the default for plain scalar)
+	// Set the encrypted value with the AES prefix and style suffix
+	node.Value = AES + encryptedValue + styleSuffix
+
+	// Reset the style to plain to avoid YAML formatting issues
 	node.Style = 0
 
-	debugLog(debug, "Encrypted multiline node with style: %v", originalStyle)
+	// Clear the tag if it's !!int, otherwise keep the original tag
+	if originalTag == TagInt {
+		node.Tag = "" // Remove !!int tag to avoid explicit type in output
+	}
+
+	debugLog(debug, "Encrypted node with style: %v", originalStyle)
 	return nil
 }
 
-// DecryptMultiline decrypts a multiline YAML node value and restores its style if needed
+// DecryptMultiline decrypts a multiline scalar node and restores its original style
 func DecryptMultiline(node *yaml.Node, decryptFn func(string) (string, error)) error {
 	if node == nil || node.Kind != yaml.ScalarNode {
 		return nil
 	}
 
-	// Store the original style before decryption
-	originalStyle := node.Style
+	// Skip decryption for folded style (>) - it's not supported
+	if node.Style == yaml.FoldedStyle {
+		return nil
+	}
 
-	// If the value doesn't start with our encryption marker, there's nothing to decrypt
+	// Skip decryption if the node doesn't have an AES prefix
 	if !strings.HasPrefix(node.Value, AES) {
 		return nil
 	}
 
-	// Extract the encrypted value (skipping the AES marker)
+	// Extract the encrypted value (skipping the AES marker) and handle style suffix
 	encryptedValue := strings.TrimPrefix(node.Value, AES)
 
-	// Check for and remove any style markers
-	hasEscapedNewlines := strings.HasSuffix(encryptedValue, MarkerEscapedNewlines)
-	if hasEscapedNewlines {
-		encryptedValue = strings.TrimSuffix(encryptedValue, MarkerEscapedNewlines)
+	// Check for style suffix
+	var styleSuffix string
+	styleInfo := yaml.Style(0) // Default plain style
+
+	// Extract style suffix if present
+	lastPipeIndex := strings.LastIndex(encryptedValue, "|")
+	if lastPipeIndex != -1 && lastPipeIndex < len(encryptedValue)-1 {
+		styleSuffix = encryptedValue[lastPipeIndex+1:]
+		encryptedValue = encryptedValue[:lastPipeIndex]
+
+		// Convert style suffix to yaml.Style
+		switch styleSuffix {
+		case StyleLiteral:
+			styleInfo = yaml.LiteralStyle
+		case StyleFolded:
+			styleInfo = yaml.FoldedStyle
+		case StyleDoubleQuoted:
+			styleInfo = yaml.DoubleQuotedStyle
+		case StyleSingleQuoted:
+			styleInfo = yaml.SingleQuotedStyle
+		case StylePlain:
+			styleInfo = yaml.Style(0) // Plain style (default)
+		}
 	}
 
 	// Decrypt the value using the provided decryption function
@@ -132,263 +233,126 @@ func DecryptMultiline(node *yaml.Node, decryptFn func(string) (string, error)) e
 	// Update the node value with the decrypted value
 	node.Value = decryptedValue
 
-	// Check for common conditions
-	hasMultilineContent := strings.Contains(decryptedValue, "\n")
-	isPEMFormat := strings.HasPrefix(decryptedValue, "-----BEGIN") && strings.Contains(decryptedValue, "-----END")
-	hasCertOrKey := hasCertificateKeyPatterns(decryptedValue)
+	// Apply the original style from the style suffix
+	if styleSuffix != "" {
+		node.Style = styleInfo
+	}
 
-	// Restore the style based on content
-	switch {
-	case hasCertOrKey && strings.Contains(decryptedValue, "\\n"):
-		// For certificates/keys with escaped newlines, use DoubleQuotedStyle
-		node.Style = yaml.DoubleQuotedStyle
-	case hasMultilineContent && isPEMFormat:
-		// For PEM formatted data
-		switch {
-		case strings.Contains(decryptedValue, "CERTIFICATE") || strings.Contains(decryptedValue, "PUBLIC KEY"):
-			// Use LiteralStyle for certificates and public keys when they have actual newlines
-			// This preserves proper formatting in YAML
-			switch {
-			case strings.Contains(decryptedValue, "\\n"):
-				// Use DoubleQuotedStyle only for escaped newlines
-				node.Style = yaml.DoubleQuotedStyle
-			case originalStyle == yaml.LiteralStyle:
-				// Preserve literal style if it was set
-				node.Style = originalStyle
-			default:
-				// Default is LiteralStyle for better readability
-				node.Style = yaml.LiteralStyle
-			}
-		case originalStyle == yaml.LiteralStyle || originalStyle == yaml.FoldedStyle:
-			// Preserve original style if it was literal or folded
-			node.Style = originalStyle
-		default:
-			// Default to LiteralStyle for other PEM content
-			node.Style = yaml.LiteralStyle
-		}
-	case hasMultilineContent && (originalStyle == yaml.LiteralStyle || originalStyle == yaml.FoldedStyle):
-		// Preserve literal or folded style for other multiline content
-		node.Style = originalStyle
-	case hasMultilineContent:
-		// Default to LiteralStyle for multiline content with no specific style
-		node.Style = yaml.LiteralStyle
-	case originalStyle != 0:
-		// If there was a specific style originally, restore it for non-multiline content
-		node.Style = originalStyle
+	// Determine if the value is numeric and handle tag appropriately
+	if isNumeric(decryptedValue) {
+		node.Tag = ""
 	}
 
 	return nil
 }
 
-// processQuotedPublicKeyDecryption performs special processing for quoted_public_key during decryption
-func processQuotedPublicKeyDecryption(node *yaml.Node, key string, debug bool) (bool, error) {
-	if strings.HasPrefix(node.Value, AES) {
-		// Decrypt the value
-		decryptedBuffer, err := encryption.Decrypt(key, strings.TrimPrefix(node.Value, AES))
-		if err != nil {
-			return false, err
-		}
-		defer decryptedBuffer.Destroy()
-
-		// Get the decrypted value
-		node.Value = string(decryptedBuffer.Bytes())
-
-		// Explicitly set the style for string with escaped newlines
-		node.Style = yaml.DoubleQuotedStyle
-
-		return true, nil
-	}
-	return false, nil
+// IsMultilineContent checks if a string contains newlines
+func IsMultilineContent(content string) bool {
+	return strings.Contains(content, "\n")
 }
 
-// determineNodeStyleForEncryption determines the node style for encryption
-func determineNodeStyleForEncryption(node *yaml.Node, path string, debug bool) (bool, bool) {
-	// First check if the node already has a multiline style
-	style := DetectMultilineStyle(node)
-	isMultiline := style != NotMultiline
-
-	// If not a multiline style, check the content
-	if !isMultiline {
-		// Check if the string contains actual newlines
-		isMultiline = IsMultilineContent(node.Value)
-
-		// Check for content with escaped newlines
-		hasEscapedNewlines := strings.Contains(node.Value, "\\n")
-		if hasEscapedNewlines && hasCertificateKeyPatterns(node.Value) {
-			isMultiline = true
-		}
-
-		// For special content types, we need to consider them multiline even if they don't have explicit newlines yet
-		if !isMultiline {
-			// Check for certificate/key content patterns that might need to be treated as multiline
-			if hasCertificateKeyPatterns(node.Value) {
-				isMultiline = true
-				debugLog(debug, "Detected certificate/key content for multiline treatment at path %s", path)
-
-				// For content with escaped newlines, preserve DoubleQuoted style
-				if strings.Contains(node.Value, "\\n") {
-					node.Style = yaml.DoubleQuotedStyle
-				} else {
-					// Set literal style for certificate/key content
-					node.Style = yaml.LiteralStyle
-				}
-			}
-		} else {
-			// Content has newlines, set appropriate style
-			if strings.Contains(node.Value, "\\n") {
-				node.Style = yaml.DoubleQuotedStyle
-				debugLog(debug, "Setting double quoted style for content with escaped newlines at path %s", path)
-			} else {
-				node.Style = yaml.LiteralStyle
-				debugLog(debug, "Setting literal style for content with newlines at path %s", path)
-			}
-		}
-	}
-
-	return isMultiline, strings.Contains(node.Value, "\\n")
-}
-
-// processEncryptedNodeForDecryption processes an encrypted node for decryption
-func processEncryptedNodeForDecryption(node *yaml.Node, path string, key string, debug bool) (bool, error) {
-	debugLog(debug, "Processing encrypted node for decryption at path %s", path)
-	debugLog(debug, "Node style before processing: %d", node.Style)
-
-	// Store original style to preserve it if needed
-	originalStyle := node.Style
-
-	// Check for special marker for quoted_public_key
-	isQuotedKeyWithEscapes := strings.HasSuffix(node.Value, MarkerQuotedKeyWithEscapes)
-	if isQuotedKeyWithEscapes {
-		// Remove the marker
-		node.Value = strings.TrimSuffix(node.Value, MarkerQuotedKeyWithEscapes)
-	}
-
-	// Check if this was a node with a certificate or key with escaped newlines
-	// For this, we'll look at the encrypted data
-	encrypted := strings.TrimPrefix(node.Value, AES)
-	decryptedBuffer, err := encryption.Decrypt(key, encrypted)
-	if err != nil {
-		return false, err
-	}
-
-	// Check the decrypted content to determine style
-	decryptedValue := string(decryptedBuffer.Bytes())
-	decryptedBuffer.Destroy()
-
-	// Prepare the node for re-decryption
-	node.Value = AES + encrypted
-
-	// Set style based on content and original style
-	switch {
-	case originalStyle == yaml.LiteralStyle:
-		// Explicitly preserve LiteralStyle (|-) if it was set
-		debugLog(debug, "Preserving original LiteralStyle (|-) for node at path %s", path)
-		// We'll let DecryptMultiline handle the final style setting
-	case isQuotedKeyWithEscapes || path == PathQuotedPublicKey ||
-		(strings.Contains(decryptedValue, "\\n") && strings.Contains(decryptedValue, "PUBLIC KEY")):
-		// Force DoubleQuoted style for strings with escaped newlines
-		node.Style = yaml.DoubleQuotedStyle
-	case IsMultilineContent(decryptedValue):
-		// If there are actual newlines, use LiteralStyle
-		node.Style = yaml.LiteralStyle
-	}
-
-	// Try to restore the style based on current context
-	if err := DecryptMultiline(node, func(value string) (string, error) {
-		decryptedBuffer, err := encryption.Decrypt(key, strings.TrimPrefix(value, AES))
-		if err != nil {
-			return "", err
-		}
-		defer decryptedBuffer.Destroy()
-		return string(decryptedBuffer.Bytes()), nil
-	}); err != nil {
-		return false, err
-	}
-
-	// Additional check for quoted_public_key
-	if path == PathQuotedPublicKey && !strings.Contains(node.Value, "\\n") {
-		// Explicitly convert newlines to escaped newlines if they're not already there
-		node.Value = strings.ReplaceAll(node.Value, "\n", "\\n")
-		node.Style = yaml.DoubleQuotedStyle
-	}
-
-	debugLog(debug, "Node style after processing: %d", node.Style)
-	return true, nil
-}
-
-// ProcessMultilineNode processes a scalar node with multiline handling
+// ProcessMultilineNode processes a scalar node for encryption or decryption
 func ProcessMultilineNode(node *yaml.Node, path string, key, operation string, debug bool) (bool, error) {
 	if node == nil || node.Kind != yaml.ScalarNode {
 		return false, nil
 	}
 
-	debugLog(debug, "Checking multiline node at path %s with style %v", path, node.Style)
+	debugLog(debug, "Processing node at path %s with style %v", path, node.Style)
 
-	// For preserving escaped newlines in quoted_public_key
-	if path == PathQuotedPublicKey && operation == OperationDecrypt {
-		processed, err := processQuotedPublicKeyDecryption(node, key, debug)
-		if err != nil || processed {
-			return processed, err
-		}
+	// Skip folded style nodes completely
+	if node.Style == yaml.FoldedStyle {
+		debugLog(debug, "WARNING: YAML folded style (> or >-) at path %s is not supported for encryption/decryption. Please use literal style (|) instead.", path)
+		// Make sure we preserve the folded style
+		node.Style = yaml.FoldedStyle
+		return false, nil
 	}
 
-	// For encryption, check if node has a multiline style or multiline content
+	// Only process nodes that need encryption/decryption
 	if operation == OperationEncrypt {
-		// Determine the node style
-		isMultiline, hasEscapedNewlines := determineNodeStyleForEncryption(node, path, debug)
-
-		// If multiline content or style is detected, encrypt it
-		if isMultiline && !strings.HasPrefix(node.Value, AES) {
-			debugLog(debug, "Processing multiline node for encryption at path %s with style %v", path, node.Style)
+		// For encryption, only encrypt the node if it's not already encrypted
+		if !strings.HasPrefix(node.Value, AES) {
+			// Encrypt the node
 			if err := EncryptMultiline(node, key, debug); err != nil {
 				return false, err
 			}
-
-			// For the path certificates.quoted_public_key save information about escaped newlines
-			if path == PathQuotedPublicKey && hasEscapedNewlines {
-				// Add a special marker for quoted_public_key
-				node.Value += MarkerQuotedKeyWithEscapes
-			}
-
-			return true, nil // Processed
+			return true, nil
 		}
 	} else if operation == OperationDecrypt {
-		// For decryption, check if the value starts with AES prefix
+		// For decryption, only decrypt if the node has the AES prefix
 		if strings.HasPrefix(node.Value, AES) {
-			return processEncryptedNodeForDecryption(node, path, key, debug)
+			// Create a decryption function that uses the key
+			decryptFn := func(value string) (string, error) {
+				// Strip AES prefix
+				encrypted := strings.TrimPrefix(value, AES)
+
+				// Decrypt using the encryption package
+				decryptedBuffer, err := encryption.DecryptToString(encrypted, key)
+				if err != nil {
+					return "", err
+				}
+				return decryptedBuffer, nil
+			}
+
+			// Decrypt the node
+			if err := DecryptMultiline(node, decryptFn); err != nil {
+				return false, err
+			}
+			return true, nil
 		}
 	}
 
 	return false, nil
 }
 
-// IsMultilineContent checks if a string is likely multiline content
-func IsMultilineContent(content string) bool {
-	return strings.Contains(content, "\n")
+// DecryptValue decrypts an AES-prefixed value
+func DecryptValue(value string, key string) (string, error) {
+	// If not encrypted, return as is
+	if !strings.HasPrefix(value, AES) {
+		return value, nil
+	}
+
+	// Strip the AES prefix and decrypt
+	encrypted := strings.TrimPrefix(value, AES)
+
+	decryptedBuffer, err := encryption.DecryptToString(encrypted, key)
+	if err != nil {
+		return "", err
+	}
+
+	return decryptedBuffer, nil
 }
 
-// hasCertificateKeyPatterns checks if a string has patterns typical for certificates or keys
-func hasCertificateKeyPatterns(content string) bool {
-	// Check for escaped newlines as might be present in quoted strings
-	hasEscapedNewlines := strings.Contains(content, "\\n")
+// isNumeric checks if a string represents a numeric value.
+// This is important for YAML processing because numeric values have different tags (!!int, !!float)
+// than string values. When a numeric value is encrypted/decrypted, we need to ensure proper
+// type information is preserved.
+//
+// Parameters:
+//   - s: The string to check
+//
+// Returns:
+//   - bool: True if the string represents a valid numeric value, false otherwise
+func isNumeric(s string) bool {
+	_, err := strconv.ParseFloat(s, 64)
+	return err == nil
+}
 
-	// Look for common certificate/key markers
-	patterns := []string{
-		"-----BEGIN", "-----END", // Generic certificate/key markers
-		"PRIVATE KEY", "PUBLIC KEY", "CERTIFICATE", // Common key/cert types
-		"RSA PRIVATE", "DSA PRIVATE", "EC PRIVATE", // Specific key types
-		"OPENSSH PRIVATE", "SSH2 ENCRYPTED", // SSH keys
-		"PGP PRIVATE", "PGP PUBLIC", // PGP keys
-		"X509", // X509 certificates
+// preserveQuotedText processes special characters in quoted text
+// so that they are correctly preserved during encryption
+//
+// Parameters:
+//   - text: source text to process
+//   - style: YAML text style
+//
+// Returns:
+//   - string: processed text with preserved escaped characters
+func preserveQuotedText(text string, style yaml.Style) string {
+	if style != yaml.DoubleQuotedStyle {
+		return text
 	}
 
-	// Check for certificate/key patterns regardless of newline style
-	for _, pattern := range patterns {
-		if strings.Contains(content, pattern) {
-			// Return true if it's a certificate/key with or without escaped newlines
-			return hasEscapedNewlines || IsMultilineContent(content)
-		}
-	}
-
-	return false
+	// For text in double quotes, we need to preserve escaped characters
+	// This is especially important for \n, \t, \r, etc.
+	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(
+		text, "\\n", "\n"), "\\t", "\t"), "\\r", "\r")
 }

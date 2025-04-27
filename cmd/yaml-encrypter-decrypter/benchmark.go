@@ -167,11 +167,10 @@ func runDecryptionBenchmarks() []benchmarkResult {
 	// Basic decryption
 	decryptResult := runSingleBenchmark("Decryption", "Standard", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			buffer, err := encryption.Decrypt(TestPassword, encrypted)
+			_, err := encryption.DecryptToString(encrypted, TestPassword)
 			if err != nil {
 				b.Fatalf("Decryption failed: %v", err)
 			}
-			buffer.Destroy()
 		}
 	})
 	results = append(results, decryptResult)
@@ -211,11 +210,10 @@ func runDecryptionBenchmarks() []benchmarkResult {
 
 		result := runSingleBenchmark("Decryption", algoName, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				buffer, err := encryption.Decrypt(TestPassword, encrypted)
+				_, err := encryption.DecryptToString(encrypted, TestPassword)
 				if err != nil {
 					b.Fatalf("Decryption with %s failed. Please check the error logs for details.", algo)
 				}
-				buffer.Destroy()
 			}
 		})
 		results = append(results, result)
@@ -278,4 +276,46 @@ func outputBenchmarkResults(results []benchmarkResult, outputFile string) error 
 	}
 
 	return nil
+}
+
+// runEncryptionBenchmarkWithParams runs encryption benchmark with specific parameters
+func runEncryptionBenchmarkWithParams(b *testing.B, password string, plaintext string) {
+	b.Run("Encryption", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, err := encryption.Encrypt(password, plaintext)
+			if err != nil {
+				b.Fatalf("Encryption failed: %v", err)
+			}
+		}
+	})
+}
+
+// runDecryptionBenchmarkWithParams runs decryption benchmark with specific parameters
+func runDecryptionBenchmarkWithParams(b *testing.B, password string, encrypted string) {
+	b.Run("Decryption", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, err := encryption.DecryptToString(encrypted, password)
+			if err != nil {
+				b.Fatalf("Decryption failed: %v", err)
+			}
+		}
+	})
+}
+
+// BenchmarkEncryptionDecryption runs benchmarks for encryption and decryption
+func BenchmarkEncryptionDecryption(b *testing.B) {
+	password := "P@ssw0rd_Str0ng!T3st#2024"
+	plaintext := "This is a test string for benchmarking."
+
+	// First encrypt the data
+	encrypted, err := encryption.Encrypt(password, plaintext)
+	if err != nil {
+		b.Fatalf("Failed to encrypt data for benchmark: %v", err)
+	}
+
+	// Run encryption benchmark
+	runEncryptionBenchmarkWithParams(b, password, plaintext)
+
+	// Run decryption benchmark
+	runDecryptionBenchmarkWithParams(b, password, encrypted)
 }

@@ -5,6 +5,8 @@ CMD_DIR := cmd/yaml-encrypter-decrypter
 TAG_NAME ?= $(shell head -n 1 .release-version 2>/dev/null || echo "v0.0.0")
 VERSION_RAW ?= $(shell tail -n 1 .release-version 2>/dev/null || echo "dev")
 VERSION ?= $(VERSION_RAW)
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
 GO_FILES := $(wildcard $(CMD_DIR)/*.go)
 
 # Ensure the output directory exists
@@ -20,6 +22,25 @@ default: fmt vet lint staticcheck build quicktest
 run:
 	@echo "Running $(BINARY_NAME)..."
 	go run main.go
+
+.PHONY: test-manual
+test-manual: build test-manual-check
+# Manual testing of files in .test directory
+.PHONY: test-manual-check
+test-manual-check:
+	@echo "Running manual tests for cert-test.yml..."
+	@echo "Creating a copy of the test file for safe testing..."
+	@cp -f .test/cert-test.yml .test/cert-test-copy.yml
+	@cp -f .test/variables.yml .test/variables-copy.yml
+	@echo "Step 1: Testing with dry-run mode on the copy..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=encrypt
+	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --config=.test/.yed_config.yml --file=.test/variables-copy.yml --operation=encrypt
+	@echo "Step 2: Testing in debug mode without dry-run on the copy..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=encrypt
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/variables-copy.yml --operation=encrypt
+	@echo "Step 3: Testing decrypt operation on the copy..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=decrypt
+	@echo "Tests completed. Original file was preserved, changes were made to .test/cert-test-copy.yml"
 
 # Install project dependencies
 .PHONY: install-deps
@@ -128,31 +149,55 @@ benchmark-report:
 	@echo "## Key Derivation Algorithms" >> benchmark-report.md
 	@echo "| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |" >> benchmark-report.md
 	@echo "|-----------|----------------|--------------|---------------|-----------|" >> benchmark-report.md
-	@go test -bench=KeyDerivationAlgorithms -benchmem ./pkg/encryption 2>/dev/null | grep "Benchmark" | sed 's/BenchmarkKeyDerivationAlgorithms\///g' | sed 's/\-[0-9]*//g' | sed 's/PBKDF2SHA256/PBKDF2-SHA256/g' | sed 's/PBKDF2SHA512/PBKDF2-SHA512/g' | awk '{print "| " $$1 " | " $$2 " | " $$3 " " $$4 " | " $$5 " " $$6 " | " $$7 " " $$8 " |"}' >> benchmark-report.md
+	@go test -bench=KeyDerivationAlgorithms -benchmem ./pkg/encryption 2>/dev/null | grep "Benchmark" | grep -v "\[DEBUG" | sed 's/BenchmarkKeyDerivationAlgorithms\///g' | sed 's/\-[0-9]*//g' | sed 's/PBKDF2SHA256/pbkdf2sha256/g' | sed 's/PBKDF2SHA512/pbkdf2sha512/g' | awk '{print "| " $$1 " | " $$2 " | " $$3 " " $$4 " | " $$5 " " $$6 " | " $$7 " " $$8 " |"}' >> benchmark-report.md
 	@echo "" >> benchmark-report.md
 	
 	@echo "## Argon2 Configurations" >> benchmark-report.md
 	@echo "| Configuration | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |" >> benchmark-report.md
 	@echo "|--------------|----------------|--------------|---------------|-----------|" >> benchmark-report.md
-	@go test -bench=BenchmarkArgon2Configs -benchmem ./pkg/encryption 2>/dev/null | grep "Benchmark" | sed 's/BenchmarkArgon2Configs\///g' | sed 's/\-[0-9]*//g' | sed 's/OWASPcurrent/OWASP-1-current/g' | sed 's/OWASP-2-12/OWASP-2/g' | sed 's/OWASP-3-12/OWASP-3/g' | sed 's/PreviousConfig/Previous-Config/g' | awk '{print "| " $$1 " | " $$2 " | " $$3 " " $$4 " | " $$5 " " $$6 " | " $$7 " " $$8 " |"}' >> benchmark-report.md
+	@go test -bench=BenchmarkArgon2Configs -benchmem ./pkg/encryption 2>/dev/null | grep "Benchmark" | grep -v "\[DEBUG" | sed 's/BenchmarkArgon2Configs\///g' | sed 's/\-[0-9]*//g' | sed 's/OWASPcurrent/OWASP-1-current/g' | sed 's/OWASP-2-12/OWASP-2/g' | sed 's/OWASP-3-12/OWASP-3/g' | sed 's/PreviousConfig/Previous-Config/g' | awk '{print "| " $$1 " | " $$2 " | " $$3 " " $$4 " | " $$5 " " $$6 " | " $$7 " " $$8 " |"}' >> benchmark-report.md
 	@echo "" >> benchmark-report.md
 	
 	@echo "## Basic Encryption and Decryption" >> benchmark-report.md
 	@echo "| Operation | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |" >> benchmark-report.md
 	@echo "|-----------|----------------|--------------|---------------|-----------|" >> benchmark-report.md
-	@go test -bench="^BenchmarkEncrypt$$|^BenchmarkDecrypt$$" -benchmem ./pkg/encryption 2>/dev/null | grep "Benchmark" | sed 's/Benchmark//g' | sed 's/\-[0-9]*//g' | awk '{print "| " $$1 " | " $$2 " | " $$3 " " $$4 " | " $$5 " " $$6 " | " $$7 " " $$8 " |"}' >> benchmark-report.md
+	@# Directly extract results from test benchmarks and format them properly
+	@go test -bench="^BenchmarkEncrypt$$" -benchmem ./pkg/encryption 2>/dev/null | grep -v "\[DEBUG" | grep "BenchmarkEncrypt-" | awk '{print "| Encrypt | " $$3 " | " $$4 " " $$5 " | " $$6 " " $$7 " | " $$8 " " $$9 " |"}' >> benchmark-report.md
+	@go test -bench="^BenchmarkDecrypt$$" -benchmem ./pkg/encryption 2>/dev/null | grep -v "\[DEBUG" | grep "BenchmarkDecrypt-" | awk '{print "| Decrypt | " $$3 " | " $$4 " " $$5 " | " $$6 " " $$7 " | " $$8 " " $$9 " |"}' >> benchmark-report.md
 	@echo "" >> benchmark-report.md
 	
 	@echo "## Encryption with Different Algorithms" >> benchmark-report.md
 	@echo "| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |" >> benchmark-report.md
 	@echo "|-----------|----------------|--------------|---------------|-----------|" >> benchmark-report.md
-	@go test -bench="BenchmarkEncryptionWithAlgorithms" -benchmem ./pkg/encryption 2>/dev/null | grep "Benchmark" | sed 's/BenchmarkEncryptionWithAlgorithms\///g' | sed 's/\-[0-9]*//g' | sed 's/pbkdf2sha256/pbkdf2-sha256/g' | sed 's/pbkdf2sha512/pbkdf2-sha512/g' | awk '{print "| " $$1 " | " $$2 " | " $$3 " " $$4 " | " $$5 " " $$6 " | " $$7 " " $$8 " |"}' >> benchmark-report.md
+	@# Create a temporary file for results
+	@go test -bench="BenchmarkEncryptionWithAlgorithms/" -benchmem ./pkg/encryption 2>/dev/null > tmp_bench_encrypt.txt
+	@# Extract results for argon2id
+	@cat tmp_bench_encrypt.txt | grep "BenchmarkEncryptionWithAlgorithms/argon2id" | grep -v "\[DEBUG" | tail -1 | sed 's/.*BenchmarkEncryptionWithAlgorithms\/\(argon2id\)[^ ]*/\1/' | awk '{print "| argon2id | " $$1 " | " $$2 " " $$3 " | " $$4 " " $$5 " | " $$6 " " $$7 " |"}' >> benchmark-report.md
+	@# Extract results for pbkdf2-sha256
+	@cat tmp_bench_encrypt.txt | grep "BenchmarkEncryptionWithAlgorithms/pbkdf2-sha256" | grep -v "\[DEBUG" | tail -1 | sed 's/.*BenchmarkEncryptionWithAlgorithms\/\(pbkdf2-sha256\)[^ ]*/\1/' | awk '{print "| pbkdf2-sha256 | " $$1 " | " $$2 " " $$3 " | " $$4 " " $$5 " | " $$6 " " $$7 " |"}' >> benchmark-report.md
+	@# Extract results for pbkdf2-sha512
+	@cat tmp_bench_encrypt.txt | grep "BenchmarkEncryptionWithAlgorithms/pbkdf2-sha512" | grep -v "\[DEBUG" | tail -1 | sed 's/.*BenchmarkEncryptionWithAlgorithms\/\(pbkdf2-sha512\)[^ ]*/\1/' | awk '{print "| pbkdf2-sha512 | " $$1 " | " $$2 " " $$3 " | " $$4 " " $$5 " | " $$6 " " $$7 " |"}' >> benchmark-report.md
+	@rm tmp_bench_encrypt.txt
 	@echo "" >> benchmark-report.md
 	
 	@echo "## Decryption with Different Algorithms" >> benchmark-report.md
 	@echo "| Algorithm | Operations/sec | Time (ns/op) | Memory (B/op) | Allocs/op |" >> benchmark-report.md
 	@echo "|-----------|----------------|--------------|---------------|-----------|" >> benchmark-report.md
-	@go test -bench="BenchmarkDecryptionWithAlgorithms" -benchmem ./pkg/encryption 2>/dev/null | grep "Benchmark" | sed 's/BenchmarkDecryptionWithAlgorithms\///g' | sed 's/\-[0-9]*//g' | sed 's/pbkdf2sha256/pbkdf2-sha256/g' | sed 's/pbkdf2sha512/pbkdf2-sha512/g' | awk '{print "| " $$1 " | " $$2 " | " $$3 " " $$4 " | " $$5 " " $$6 " | " $$7 " " $$8 " |"}' >> benchmark-report.md
+	@# Create a temporary file for results
+	@go test -bench="BenchmarkDecryptionWithAlgorithms/" -benchmem ./pkg/encryption 2>/dev/null > tmp_bench_decrypt.txt
+	@# Extract results for argon2id
+	@cat tmp_bench_decrypt.txt | grep "BenchmarkDecryptionWithAlgorithms/argon2id" | grep -v "\[DEBUG" | tail -1 | sed 's/.*BenchmarkDecryptionWithAlgorithms\/\(argon2id\)[^ ]*/\1/' | awk '{print "| argon2id | " $$1 " | " $$2 " " $$3 " | " $$4 " " $$5 " | " $$6 " " $$7 " |"}' >> benchmark-report.md
+	@# Extract results for pbkdf2-sha256
+	@cat tmp_bench_decrypt.txt | grep "BenchmarkDecryptionWithAlgorithms/pbkdf2-sha256" | grep -v "\[DEBUG" | tail -1 | sed 's/.*BenchmarkDecryptionWithAlgorithms\/\(pbkdf2-sha256\)[^ ]*/\1/' | awk '{print "| pbkdf2-sha256 | " $$1 " | " $$2 " " $$3 " | " $$4 " " $$5 " | " $$6 " " $$7 " |"}' >> benchmark-report.md
+	@# Extract results for pbkdf2-sha512
+	@cat tmp_bench_decrypt.txt | grep "BenchmarkDecryptionWithAlgorithms/pbkdf2-sha512" | grep -v "\[DEBUG" | tail -1 | sed 's/.*BenchmarkDecryptionWithAlgorithms\/\(pbkdf2-sha512\)[^ ]*/\1/' | awk '{print "| pbkdf2-sha512 | " $$1 " | " $$2 " " $$3 " | " $$4 " " $$5 " | " $$6 " " $$7 " |"}' >> benchmark-report.md
+	@rm tmp_bench_decrypt.txt
+	@echo "" >> benchmark-report.md
+	
+	@echo "## Decryption Algorithm Failures" >> benchmark-report.md
+	@echo "| Algorithm | Status | Error |" >> benchmark-report.md
+	@echo "|-----------|--------|-------|" >> benchmark-report.md
+	@go test -bench="BenchmarkDecryptionWithAlgorithms" -benchmem ./pkg/encryption 2>&1 | grep "benchmark_test.go" | grep -A1 "failed:" | sed 's/.*Decryption with \(.*\) failed: \(.*\)/| \1 | Failed | \2 |/g' >> benchmark-report.md
 	@echo "" >> benchmark-report.md
 	
 	@echo "Benchmark report generated: benchmark-report.md"
@@ -181,40 +226,6 @@ fmt:
 vet:
 	@echo "Running go vet..."
 	go vet ./...
-
-# Display help information
-.PHONY: help
-help:
-	@echo "Available targets:"
-	@echo "  default         - Run formatting, vetting, linting, staticcheck, build, and quick tests"
-	@echo "  run             - Run the application locally"
-	@echo "  install-deps    - Install project dependencies"
-	@echo "  upgrade-deps    - Upgrade all project dependencies to their latest versions"
-	@echo "  clean-deps      - Clean up vendor dependencies"
-	@echo "  build           - Build the application for the current OS/architecture"
-	@echo "  build-cross     - Build binaries for multiple platforms"
-	@echo "  clean           - Clean build artifacts"
-	@echo "  test            - Run all tests with race detection and coverage"
-	@echo "  quicktest       - Run quick tests without additional checks"
-	@echo "  test-coverage   - Run tests with coverage report"
-	@echo "  test-race       - Run tests with race detection"
-	@echo "  benchmark       - Run basic benchmarks"
-	@echo "  benchmark-long  - Run comprehensive benchmarks with longer duration"
-	@echo "  benchmark-encryption - Run only encryption/decryption benchmarks"
-	@echo "  benchmark-algorithms - Run key derivation algorithm comparison benchmarks"
-	@echo "  benchmark-argon2 - Run Argon2 configuration comparison benchmarks"
-	@echo "  benchmark-report - Generate a markdown report of all benchmarks"
-	@echo "  test-all        - Run all tests and benchmarks"
-	@echo "  clean-coverage  - Clean coverage and benchmark files"
-	@echo "  fmt             - Check code formatting"
-	@echo "  vet             - Analyze code with go vet"
-	@echo "  lint            - Run golangci-lint on the codebase"
-	@echo "  install-lint    - Install golangci-lint"
-	@echo "  lint-fix        - Run golangci-lint with auto-fix"
-	@echo "  staticcheck     - Run staticcheck static analyzer on the codebase"
-	@echo "  install-staticcheck - Install staticcheck"
-	@echo "  check-all       - Run all code quality checks (lint and staticcheck)"
-	@echo "  help            - Display this help message"
 
 .PHONY: test lint lint-fix install-lint
 
@@ -249,3 +260,53 @@ check-all: lint staticcheck
 lint-fix:
 	@echo "Running linter with auto-fix..."
 	@~/go/bin/golangci-lint run --fix
+
+# Build and run the application in a container
+.PHONY: build-image run-image
+
+build-image:
+	docker build \
+	-t yed:$(TAG_NAME) \
+	-f Dockerfile .
+	@echo "Image built successfully."
+
+run-image:
+	docker run -it --rm yed:$(TAG_NAME)
+	@echo "Image run successfully."
+
+# Display help information
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo "  default         		- Run formatting, vetting, linting, staticcheck, build, and quick tests"
+	@echo "  run             		- Run the application locally"
+	@echo "  install-deps    		- Install project dependencies"
+	@echo "  upgrade-deps    		- Upgrade all project dependencies to their latest versions"
+	@echo "  clean-deps      		- Clean up vendor dependencies"
+	@echo "  build           		- Build the application for the current OS/architecture"
+	@echo "  build-cross     		- Build binaries for multiple platforms"
+	@echo "  clean           		- Clean build artifacts"
+	@echo "  test            		- Run all tests with race detection and coverage"
+	@echo "  quicktest       		- Run quick tests without additional checks"
+	@echo "  test-coverage   		- Run tests with coverage report"
+	@echo "  test-race       		- Run tests with race detection"
+	@echo "  test-manual    		- Run manual tests"
+	@echo "  test-all        		- Run all tests and benchmarks"
+	@echo "  benchmark       		- Run basic benchmarks"
+	@echo "  benchmark-long  		- Run comprehensive benchmarks with longer duration"
+	@echo "  benchmark-encryption 		- Run only encryption/decryption benchmarks"
+	@echo "  benchmark-algorithms 		- Run key derivation algorithm comparison benchmarks"
+	@echo "  benchmark-argon2 		- Run Argon2 configuration comparison benchmarks"
+	@echo "  benchmark-report 		- Generate a markdown report of all benchmarks"
+	@echo "  clean-coverage  		- Clean coverage and benchmark files"
+	@echo "  fmt             		- Check code formatting"
+	@echo "  vet             		- Analyze code with go vet"
+	@echo "  lint            		- Run golangci-lint on the codebase"
+	@echo "  install-lint    		- Install golangci-lint"
+	@echo "  lint-fix        		- Run golangci-lint with auto-fix"
+	@echo "  staticcheck     		- Run staticcheck static analyzer on the codebase"
+	@echo "  install-staticcheck 		- Install staticcheck"
+	@echo "  check-all       		- Run all code quality checks (lint and staticcheck)"
+	@echo "  build-image     		- Build Docker image"
+	@echo "  run-image       		- Run Docker image with --version flag"
+	@echo "  help            		- Display this help message"
