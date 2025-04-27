@@ -24,16 +24,17 @@ func processFileWithInterruptHandling(flags appFlags, keyBuffer *memguard.Locked
 	// Process file in a goroutine
 	go func() {
 		if flags.diff {
-			errChan <- processor.ShowDiff(flags.filename, string(keyBuffer.Bytes()), flags.operation, flags.debug)
+			log.Printf("[DEBUG] Before ShowDiff: configPath='%s'", flags.configPath)
+			errChan <- processor.ShowDiff(flags.filename, string(keyBuffer.Bytes()), flags.operation, flags.debug, flags.configPath)
 			return
 		}
 
 		if flags.dryRun {
-			errChan <- handleDryRun(flags.filename, keyBuffer, flags.operation, rules, flags.debug)
+			errChan <- handleDryRun(flags.filename, keyBuffer, flags.operation, rules, flags.debug, flags.configPath)
 			return
 		}
 
-		errChan <- processor.ProcessFile(flags.filename, string(keyBuffer.Bytes()), flags.operation, flags.debug)
+		errChan <- processor.ProcessFile(flags.filename, string(keyBuffer.Bytes()), flags.operation, flags.debug, flags.configPath)
 	}()
 
 	// Wait for either completion or interruption
@@ -51,7 +52,7 @@ func processFileWithInterruptHandling(flags appFlags, keyBuffer *memguard.Locked
 }
 
 // handleDryRun processes the file for dry-run mode
-func handleDryRun(filename string, keyBuffer *memguard.LockedBuffer, operation string, rules []processor.Rule, debug bool) error {
+func handleDryRun(filename string, keyBuffer *memguard.LockedBuffer, operation string, rules []processor.Rule, debug bool, configPath string) error {
 	content, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("error reading file: %v", err)

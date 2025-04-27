@@ -4,7 +4,9 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/atlet99/yaml-encrypter-decrypter/pkg/encryption"
 	"github.com/atlet99/yaml-encrypter-decrypter/pkg/processor"
 
 	"github.com/awnumar/memguard"
@@ -19,7 +21,17 @@ const (
 )
 
 func main() {
-	os.Exit(mainWithExitCode())
+	// Safe termination when receiving interrupt signal
+	memguard.CatchInterrupt()
+
+	// Run main code and exit with returned code
+	code := mainWithExitCode()
+
+	// Clean up at the end of execution
+	memguard.Purge()
+
+	// Exit with the return code
+	os.Exit(code)
 }
 
 func mainWithExitCode() int {
@@ -55,22 +67,43 @@ func mainWithExitCode() int {
 	}
 
 	// Validate and set algorithm flag if provided
-	keyDerivation, err := validateAlgorithm(flags.algorithm)
+	keyDerivation, err := encryption.ValidateAlgorithm(flags.algorithm)
 	if err != nil {
 		log.Println(err)
 		return 1
 	}
 
-	// Initialize memguard
-	memguard.CatchInterrupt()
-	defer memguard.Purge()
-
 	// Create a secure buffer for the key
 	keyBuffer := memguard.NewBufferFromBytes([]byte(key))
 	defer keyBuffer.Destroy()
 
+	// Determine the config path
+	configFilePath := ".yed_config.yml"
+	if flags.configPath != "" {
+		configFilePath = flags.configPath
+		if flags.debug {
+			log.Printf("Using custom config path: %s\n", configFilePath)
+		}
+	}
+
+	// Convert relative path to absolute path
+	if !filepath.IsAbs(configFilePath) {
+		absPath, err := filepath.Abs(configFilePath)
+		if err == nil {
+			configFilePath = absPath
+			if flags.debug {
+				log.Printf("Using absolute config path: %s\n", configFilePath)
+			}
+		} else {
+			log.Printf("Warning: could not convert %s to absolute path: %v\n", configFilePath, err)
+		}
+	}
+
+	// Update flags.configPath with the resolved path
+	flags.configPath = configFilePath
+
 	// Load rules from config file
-	rules, _, err := processor.LoadRules(".yed_config.yml", flags.debug)
+	rules, _, err := processor.LoadRules(configFilePath, flags.debug)
 	if err != nil {
 		log.Printf("Error loading rules: %v\n", err)
 		return 1
@@ -78,7 +111,7 @@ func mainWithExitCode() int {
 
 	// Set the encryption algorithm if specified
 	if keyDerivation != "" {
-		setKeyDerivationAlgorithm(keyDerivation, flags.debug)
+		encryption.SetDefaultAlgorithm(keyDerivation)
 	}
 
 	// Process file and handle interruption

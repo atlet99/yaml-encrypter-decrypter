@@ -3,9 +3,6 @@ package encryption
 import (
 	"strings"
 	"testing"
-	"time"
-
-	"golang.org/x/crypto/argon2"
 )
 
 func BenchmarkEncrypt(b *testing.B) {
@@ -33,68 +30,10 @@ func BenchmarkDecrypt(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		buffer, err := Decrypt(password, encrypted)
+		_, err := Decrypt(password, encrypted)
 		if err != nil {
 			b.Fatalf("Decryption failed: %v", err)
 		}
-		// Clean up the buffer after use
-		buffer.Destroy()
-	}
-}
-
-// TestArgon2Configs compares execution time of various Argon2id configurations
-func TestArgon2Configs(t *testing.T) {
-	// Use a strong password that meets all requirements
-	password := []byte("P@ssw0rd_Str0ng!T3st#2024")
-	salt := make([]byte, 32)
-
-	// Tested configurations from OWASP recommendations and our current one
-	configs := []struct {
-		name string
-		m    uint32 // memory in KiB
-		t    uint32 // iterations
-		p    uint8  // parallelism
-	}{
-		{"OWASP-1-current", 9216, 4, 1},       // Our current configuration
-		{"OWASP-2", 7168, 5, 1},               // Alternative configuration
-		{"OWASP-3", 12288, 3, 1},              // Another alternative
-		{"Previous-Config", 256 * 1024, 4, 8}, // Our previous configuration
-	}
-
-	for _, cfg := range configs {
-		t.Run(cfg.name, func(t *testing.T) {
-			start := time.Now()
-			_ = argon2.IDKey(password, salt, cfg.t, cfg.m, cfg.p, 32)
-			elapsed := time.Since(start)
-			t.Logf("Configuration %s took %s", cfg.name, elapsed)
-		})
-	}
-}
-
-// BenchmarkArgon2Configs conducts more detailed comparison of configurations
-func BenchmarkArgon2Configs(b *testing.B) {
-	// Use a strong password that meets all requirements
-	password := []byte("P@ssw0rd_Str0ng!T3st#2024")
-	salt := make([]byte, 32)
-
-	configs := []struct {
-		name string
-		m    uint32
-		t    uint32
-		p    uint8
-	}{
-		{"OWASP-1-current", 9216, 4, 1},
-		{"OWASP-2", 7168, 5, 1},
-		{"OWASP-3", 12288, 3, 1},
-		{"Previous-Config", 256 * 1024, 4, 8},
-	}
-
-	for _, cfg := range configs {
-		b.Run(cfg.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				_ = argon2.IDKey(password, salt, cfg.t, cfg.m, cfg.p, 32)
-			}
-		})
 	}
 }
 
@@ -109,17 +48,6 @@ func BenchmarkEncryptionWithAlgorithms(b *testing.B) {
 		PBKDF2SHA256Algorithm,
 		PBKDF2SHA512Algorithm,
 	}
-
-	// Use a smaller number of iterations for benchmarks
-	originalPBKDF2SHA256Iterations := pbkdf2SHA256Iterations
-	originalPBKDF2SHA512Iterations := pbkdf2SHA512Iterations
-	pbkdf2SHA256Iterations = 1000
-	pbkdf2SHA512Iterations = 1000
-	defer func() {
-		// Restore original values after benchmark
-		pbkdf2SHA256Iterations = originalPBKDF2SHA256Iterations
-		pbkdf2SHA512Iterations = originalPBKDF2SHA512Iterations
-	}()
 
 	for _, algo := range algorithms {
 		b.Run(string(algo), func(b *testing.B) {
@@ -148,12 +76,6 @@ func BenchmarkDecryptionWithAlgorithms(b *testing.B) {
 	// Prepare encrypted data in advance
 	encryptedData := make(map[KeyDerivationAlgorithm]string)
 
-	// Use a smaller number of iterations for benchmarks
-	originalPBKDF2SHA256Iterations := pbkdf2SHA256Iterations
-	originalPBKDF2SHA512Iterations := pbkdf2SHA512Iterations
-	pbkdf2SHA256Iterations = 1000
-	pbkdf2SHA512Iterations = 1000
-
 	for _, algo := range algorithms {
 		encrypted, err := Encrypt(password, plaintext, algo)
 		if err != nil {
@@ -168,16 +90,131 @@ func BenchmarkDecryptionWithAlgorithms(b *testing.B) {
 		b.Run(string(algo), func(b *testing.B) {
 			encrypted := encryptedData[algo]
 			for i := 0; i < b.N; i++ {
-				buffer, err := Decrypt(password, encrypted)
+				// Explicitly specify the algorithm for decryption to avoid authentication errors
+				_, err := Decrypt(password, encrypted, algo)
 				if err != nil {
 					b.Fatalf("Decryption with %s failed: %v", algo, err)
 				}
-				buffer.Destroy()
 			}
 		})
 	}
+}
 
-	// Restore original values after all tests
-	pbkdf2SHA256Iterations = originalPBKDF2SHA256Iterations
-	pbkdf2SHA512Iterations = originalPBKDF2SHA512Iterations
+// BenchmarkKeyDerivationAlgorithms compares the performance of different key derivation algorithms
+func BenchmarkKeyDerivationAlgorithms(b *testing.B) {
+	// Use a strong password that meets all requirements
+	password := "P@ssw0rd_Str0ng!T3st#2024"
+	salt := []byte("Random_Salt_For_Testing_Benchmarks")
+
+	// Test each key derivation algorithm
+	algorithms := []KeyDerivationAlgorithm{
+		Argon2idAlgorithm,
+		PBKDF2SHA256Algorithm,
+		PBKDF2SHA512Algorithm,
+	}
+
+	for _, algo := range algorithms {
+		b.Run(string(algo), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				key, err := deriveKey(password, salt, algo)
+				if err != nil {
+					b.Fatalf("Key derivation with %s failed: %v", algo, err)
+				}
+				// Ensure key is used to prevent compiler optimizations
+				if len(key) == 0 {
+					b.Fatalf("Key derivation produced empty key")
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkArgon2Configs compares the performance of different Argon2 configurations
+func BenchmarkArgon2Configs(b *testing.B) {
+	// Define a set of Argon2 configurations to test
+	configs := []struct {
+		name       string
+		iterations uint32
+		memory     uint32
+		threads    uint8
+		keyLength  int
+	}{
+		{"OWASP-1-current", 1, 64 * 1024, 4, 32},         // Current settings
+		{"OWASP-2-more-iterations", 2, 64 * 1024, 4, 32}, // Increased time cost
+		{"OWASP-3-max-iterations", 3, 64 * 1024, 4, 32},  // Further increased time cost
+		{"Previous-Config", 1, 32 * 1024, 2, 32},         // Previous/older configuration
+	}
+
+	password := "P@ssw0rd_Str0ng!T3st#2024"
+	salt := []byte("Random_Salt_For_Testing_Benchmarks")
+
+	// Save the original values
+	originalIterations := argon2Iterations
+	originalMem := argon2Memory
+	originalThreads := argon2Threads
+
+	// Restore original values after the benchmark
+	defer func() {
+		argon2Iterations = originalIterations
+		argon2Memory = originalMem
+		argon2Threads = originalThreads
+	}()
+
+	for _, cfg := range configs {
+		b.Run(cfg.name, func(b *testing.B) {
+			// Set the Argon2 parameters for this benchmark
+			argon2Iterations = cfg.iterations
+			argon2Memory = cfg.memory
+			argon2Threads = cfg.threads
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				key, err := deriveKey(password, salt, Argon2idAlgorithm)
+				if err != nil {
+					b.Fatalf("Key derivation failed: %v", err)
+				}
+				// Ensure key is used to prevent compiler optimizations
+				if len(key) == 0 {
+					b.Fatalf("Key derivation produced empty key")
+				}
+			}
+		})
+	}
+}
+
+func TestPBKDF2SHA256Iterations(t *testing.T) {
+	// Save the original value
+	originalIterations := pbkdf2SHA256Iterations
+	defer func() { pbkdf2SHA256Iterations = originalIterations }()
+
+	// Set the test value
+	pbkdf2SHA256Iterations = 1000
+
+	// Test key derivation
+	key, err := deriveKey("test-password", []byte("test-salt"), PBKDF2SHA256Algorithm)
+	if err != nil {
+		t.Fatalf("Failed to derive key: %v", err)
+	}
+	if len(key) != PBKDF2KeyLen {
+		t.Errorf("Expected key length %d, got %d", PBKDF2KeyLen, len(key))
+	}
+}
+
+func TestPBKDF2SHA512Iterations(t *testing.T) {
+	// Save the original value
+	originalIterations := pbkdf2SHA512Iterations
+	defer func() { pbkdf2SHA512Iterations = originalIterations }()
+
+	// Set the test value
+	pbkdf2SHA512Iterations = 1000
+
+	// Test key derivation
+	key, err := deriveKey("test-password", []byte("test-salt"), PBKDF2SHA512Algorithm)
+	if err != nil {
+		t.Fatalf("Failed to derive key: %v", err)
+	}
+	if len(key) != PBKDF2KeyLen {
+		t.Errorf("Expected key length %d, got %d", PBKDF2KeyLen, len(key))
+	}
 }
