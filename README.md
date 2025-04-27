@@ -36,12 +36,35 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
   - Minimum password length increased to 15 characters
   - Maximum password length remains at 64 characters
 - Improved help output formatting with clear categorization of options.
+- Enhanced multiline YAML support with improved style preservation
+- Improved secure memory handling with optimized buffer management
+- Enhanced HMAC calculation for better data integrity
+- Optimized data handling with reduced secure data clones
+- Simplified data compression logic
+- Separated approach for cipher algorithm and parameters
+- Improved code structure and maintainability
+- Enhanced debug information with detailed stage comments
+- Added manual testing capabilities via Makefile
+- Added simple Docker build and run arguments
+- Added new test files for multiline parameters
+- Added benchmark arguments in console output
+- Added cleanerEncrypted function for non-printable strings
+- Improved test coverage for processing.go
 
 ## **Recent Updates**
 - **Security Enhancement**: Increased minimum password length to 15 characters to comply with NIST SP 800-63B guidelines
 - **UI Improvement**: Reorganized help output for better readability and clarity
 - **Documentation**: Updated all documentation to reflect new security requirements
 - **Code Quality**: Fixed various linter warnings and improved code documentation
+- **Security**: Improved secure memory utilization for encrypted master key
+- **Performance**: Enhanced HMAC calculation for all data blocks
+- **Testing**: Added comprehensive test coverage for processing.go
+- **Docker**: Added simplified Docker build and run arguments
+- **Debug**: Added improved debug information with detailed stage comments
+- **Testing**: Added manual testing capabilities via Makefile
+- **Multiline Support**: Added new test files for multiline parameters
+- **Benchmarking**: Added benchmark arguments in console output
+- **String Handling**: Added cleanerEncrypted function for non-printable strings
 
 ## **Performance Benchmarks**
 
@@ -135,6 +158,11 @@ The tool implements robust memory security measures to protect sensitive data:
 5. **Buffer Lifecycle**: Explicit buffer lifecycle management with destroy calls to prevent memory leaks.
 6. **Sensitive Data Protection**: Prevents sensitive data from being exposed in logs or error messages.
 7. **Strong Password Requirements**: Enforces a minimum key length of 15 characters (NIST SP 800-63B compliant) for both command-line and environment variable provided keys.
+8. **Optimized Memory Usage**: Improved secure memory utilization focusing on critical components
+9. **Enhanced HMAC**: Improved HMAC calculation for better data integrity
+10. **Buffer Management**: Optimized data handling with reduced secure data clones
+11. **Compression**: Simplified data compression logic for better performance
+12. **Algorithm Separation**: Separated approach for cipher algorithm and parameters
 
 ### **Multiline YAML Support**
 The tool provides comprehensive support for encrypting and decrypting multiline YAML content:
@@ -230,7 +258,7 @@ certificates:
   quoted_public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\nxWzg9vJJR0TIIu5XzCQG\n-----END PUBLIC KEY-----"
 ```
 
-#### **How Multiline Processing Works**
+#### **Multiline Processing Works**
 
 When processing multiline YAML content, the tool:
 
@@ -788,3 +816,27 @@ This approach ensures that folded style sections are not corrupted during encryp
 - Strong passwords should include uppercase, lowercase, numbers, and special characters
 - Only the Argon2id algorithm is fully supported for production use
 - Protected memory is used for encryption keys but not for all data
+
+### **Testing and Development**
+The project includes comprehensive testing and development tools:
+
+1. **Manual Testing**:
+   - Added `test-manual` command in Makefile
+   - Supports testing files from `.test` directory
+   - Implements testing in dry-run mode first, then in debug mode
+   - Includes specific support for cert-test.yml testing
+
+2. **Docker Support**:
+   - Added simplified build and run arguments
+   - Improved Docker image versioning
+   - Enhanced cross-platform compatibility
+
+3. **Benchmarking**:
+   - Added benchmark arguments in console output
+   - Comprehensive performance testing suite
+   - Detailed benchmark reports in Markdown format
+
+4. **Code Quality**:
+   - Improved test coverage for processing.go
+   - Added cleanerEncrypted function for non-printable strings
+   - Enhanced debug information with detailed stage comments

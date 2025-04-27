@@ -90,6 +90,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `staticcheck` to run static analysis
   - `check-all` to run all code quality checks
 - Added `--config` flag to specify custom path to configuration file
+- Added cleanerEncrypted function for handling non-printable strings
+- Added comprehensive test coverage for processing.go
+- Added manual testing scenario via Makefile
+- Added simple arguments for building and running Docker images
+- Added new test files for multiline parameters
+- Added benchmark arguments in console output
+- Added multiline encryption/decryption support
+- Added improved debug information with detailed comments for each stage and function
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -170,6 +178,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Standardized option descriptions format
   - Added default values where applicable
   - Improved overall visual hierarchy
+- Improved secure memory utilization (only for encrypted master key)
+- Enhanced HMAC calculation for all data blocks
+- Optimized data handling by reducing secure data clones
+- Simplified data compression logic
+- Separated approach for cipher algorithm and parameters
+- Improved code structure
+- Updated GitHub Actions runner version
+- Fixed CI configuration with version info for Docker images and GitHub releases
+- Improved flags for best practices
+- Updated .yed_config.yml configuration
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
@@ -249,6 +267,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed exitAfterDefer issue in main.go to ensure proper cleanup
   - Replaced magic numbers with named constants for better code quality and readability
   - Added dedicated constants for percentage calculations
+- Fixed syntax errors in benchmark report
+- Fixed secure memory utilization issues
+- Fixed test coverage issues
+- Fixed CI configuration and minor issues
+- Fixed automated security scanning workflows
+- Fixed Docker image building and running process
+- Fixed test-manual command with proper file cloning in force mode
+- Fixed duplicated function issue
 
 ### Removed
 - Removed deprecated tests from encryption and processor packages
@@ -287,7 +313,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Conditional encryption support
 - Debug mode and dry run support
 
-## [0.3.6] - 2025-04-23
+## [0.3.6] - 2025-04-27
 ### Added
 - Support for YAML folded style (`>` and `>-`) preservation during encryption/decryption
 - Improved documentation for format preservation features
