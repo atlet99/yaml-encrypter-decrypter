@@ -6,12 +6,11 @@ on:
   pull_request_review:
     types: [dismissed]
     
-permissions:
-  contents: read
-  pull-requests: write
-  
 jobs:
   autoapproval:
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
     name: Autoapproval
     steps:
