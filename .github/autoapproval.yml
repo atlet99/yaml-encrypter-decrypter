@@ -1,5 +1,5 @@
 from_owner:
-  - dependabot[bot]
+  - atlet99
 
 required_labels:
   - ready
