@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added detailed documentation for rule configuration in README.md
 - Added line numbers in diff output for easier identification of changes
 - Added Staticcheck static analyzer integration for improved code quality checks
+- Added comprehensive issue templates:
+  - Bug report template with automatic `bug` and `help wanted` labels
+  - Feature request template with `enhancement` and `good first issue` labels
+  - Question/Discussion template with `question` and `help wanted` labels
+  - Added detailed sections for context and reproduction steps
+  - Included automatic assignee for bug reports and feature requests
+  - Added labels guide section to explain available labels
+  - Enhanced templates with clear instructions and examples
 - Added Makefile commands for code quality tooling:
   - `upgrade-deps` command for updating all dependencies to latest versions
   - `staticcheck` command for running static analysis
