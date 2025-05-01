@@ -240,6 +240,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed encrypted value length information from debug logs
   - Created separate helper functions to prevent sensitive data exposure
   - Improved masking of sensitive data in all output modes
+- Enhanced sensitive data protection in debug mode:
+  - Masked password lengths and encryption key information
+  - Removed sensitive data from debug logs in password validation
+  - Improved masking of encrypted data details in decryption process
+  - Added protection for YAML style information that might contain sensitive data
+  - Enhanced security of debug output in encryption/decryption operations
 
 ### Fixed
 - Fixed argument order in encryption/decryption function calls to properly handle key and value parameters
