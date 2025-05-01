@@ -196,6 +196,11 @@ const (
 
 	// UnknownAlgorithm is the constant for unknown algorithm
 	UnknownAlgorithm = "unknown algorithm"
+
+	// Constants for YAML structure
+	linesPerRule = 5
+	// First rule starts after "encryption:" and "rules:"
+	firstRuleOffset = 3
 )
 
 // CurrentKeyDerivationAlgorithm is the algorithm to use for encryption
@@ -1171,6 +1176,13 @@ func loadRules(configFile string, debug bool) ([]Rule, *Config, error) {
 		}
 	}
 
+	// Check for duplicate rules
+	if duplicates := checkDuplicateRules(config.Encryption.Rules, debug); len(duplicates) > 0 {
+		for _, dup := range duplicates {
+			debugLog(debug, "[WARN] Duplicate rule found: %s", dup)
+		}
+	}
+
 	// Log unsecure_diff setting
 	if config.Encryption.UnsecureDiff {
 		debugLog(debug, "WARNING: unsecure_diff is set to TRUE. Some sensitive data will be visible in diff mode, "+
@@ -1183,6 +1195,33 @@ func loadRules(configFile string, debug bool) ([]Rule, *Config, error) {
 	config.UnsecureDiff = config.Encryption.UnsecureDiff
 
 	return config.Encryption.Rules, &config, nil
+}
+
+// checkDuplicateRules checks for duplicate rules based on block, pattern, and action
+func checkDuplicateRules(rules []Rule, debug bool) []string {
+	var duplicates []string
+	ruleMap := make(map[string]map[string]map[string]int) // block -> pattern -> action -> line number
+
+	for i, rule := range rules {
+		if _, exists := ruleMap[rule.Block]; !exists {
+			ruleMap[rule.Block] = make(map[string]map[string]int)
+		}
+		if _, exists := ruleMap[rule.Block][rule.Pattern]; !exists {
+			ruleMap[rule.Block][rule.Pattern] = make(map[string]int)
+		}
+		if line, exists := ruleMap[rule.Block][rule.Pattern][rule.Action]; exists {
+			// Calculate actual line numbers in YAML file
+			duplicateLine := i*linesPerRule + firstRuleOffset
+			originalLine := line*linesPerRule + firstRuleOffset
+			msg := fmt.Sprintf("Duplicate rule found: line %d: rule '%s' (block: '%s', pattern: '%s', action: '%s') duplicates rule at line %d",
+				duplicateLine, rule.Name, rule.Block, rule.Pattern, rule.Action, originalLine)
+			duplicates = append(duplicates, msg)
+		} else {
+			ruleMap[rule.Block][rule.Pattern][rule.Action] = i
+		}
+	}
+
+	return duplicates
 }
 
 // processRules processes rules in order of priority
