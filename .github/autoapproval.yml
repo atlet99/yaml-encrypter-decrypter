@@ -1,3 +1,5 @@
+_extends: github-settings
+
 from_owner:
   - atlet99
 
