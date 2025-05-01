@@ -3287,3 +3287,154 @@ func TestProcessScalarNodeStandard(t *testing.T) {
 		})
 	}
 }
+
+// TestDuplicateRules tests the detection of duplicate rules in YAML configuration
+func TestDuplicateRules(t *testing.T) {
+	testCases := []struct {
+		name           string
+		config         string
+		expectedOutput string
+	}{
+		{
+			name: "No duplicates",
+			config: `encryption:
+  rules:
+    - name: rule1
+      block: block1
+      pattern: pattern1
+      action: encrypt
+    - name: rule2
+      block: block2
+      pattern: pattern2
+      action: encrypt`,
+			expectedOutput: "",
+		},
+		{
+			name: "Duplicate rules with same block, pattern, and action",
+			config: `encryption:
+  rules:
+    - name: rule1
+      block: block1
+      pattern: pattern1
+      action: encrypt
+    - name: rule2
+      block: block1
+      pattern: pattern1
+      action: encrypt`,
+			expectedOutput: "[WARN] Duplicate rule found: line 8: rule 'rule2' (block: 'block1', pattern: 'pattern1', action: 'encrypt') duplicates rule at line 3\n",
+		},
+		{
+			name: "Duplicate rules with different names",
+			config: `encryption:
+  rules:
+    - name: rule1
+      block: block1
+      pattern: pattern1
+      action: encrypt
+    - name: rule3
+      block: block1
+      pattern: pattern1
+      action: encrypt`,
+			expectedOutput: "[WARN] Duplicate rule found: line 8: rule 'rule3' (block: 'block1', pattern: 'pattern1', action: 'encrypt') duplicates rule at line 3\n",
+		},
+		{
+			name: "Multiple duplicates",
+			config: `encryption:
+  rules:
+    - name: rule1
+      block: block1
+      pattern: pattern1
+      action: encrypt
+    - name: rule2
+      block: block1
+      pattern: pattern1
+      action: encrypt
+    - name: rule3
+      block: block1
+      pattern: pattern1
+      action: encrypt`,
+			expectedOutput: "[WARN] Duplicate rule found: line 8: rule 'rule2' (block: 'block1', pattern: 'pattern1', action: 'encrypt') duplicates rule at line 3\n[WARN] Duplicate rule found: line 13: rule 'rule3' (block: 'block1', pattern: 'pattern1', action: 'encrypt') duplicates rule at line 3\n",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Logf("\n=== Testing: %s ===", tc.name)
+
+			// Create testdata directory if it doesn't exist
+			if err := os.MkdirAll("testdata", 0755); err != nil {
+				t.Fatalf("Failed to create testdata directory: %v", err)
+			}
+
+			// Create temporary config file in the testdata directory
+			tmpFile, err := os.CreateTemp("testdata", "test_config_*.yml")
+			if err != nil {
+				t.Fatalf("Failed to create temp file: %v", err)
+			}
+			defer func() {
+				tmpFile.Close()
+				os.Remove(tmpFile.Name())
+			}()
+
+			// Write config to temp file
+			if err := os.WriteFile(tmpFile.Name(), []byte(tc.config), 0644); err != nil {
+				t.Fatalf("Failed to write config: %v", err)
+			}
+
+			// Create a pipe to capture stdout
+			oldStdout := os.Stdout
+			r, w, err := os.Pipe()
+			if err != nil {
+				t.Fatalf("Failed to create pipe: %v", err)
+			}
+			os.Stdout = w
+
+			// Load rules with debug enabled
+			rules, _, err := loadRules(tmpFile.Name(), true)
+			if err != nil {
+				t.Fatalf("Failed to load rules: %v", err)
+			}
+
+			// Close the write end of the pipe
+			w.Close()
+			os.Stdout = oldStdout
+
+			// Read the captured output
+			var buf bytes.Buffer
+			if _, err := io.Copy(&buf, r); err != nil {
+				t.Fatalf("Failed to read from pipe: %v", err)
+			}
+			r.Close()
+
+			// Get the actual output
+			actualOutput := buf.String()
+
+			// Filter only the duplicate rule warnings and clean up the output
+			var filteredOutput string
+			for _, line := range strings.Split(actualOutput, "\n") {
+				if strings.Contains(line, "Duplicate rule found") {
+					// Remove [DEBUG] prefix if present
+					line = strings.TrimPrefix(line, "[DEBUG] ")
+					// Remove all [WARN] prefixes
+					line = strings.ReplaceAll(line, "[WARN] ", "")
+					// Remove duplicate "Duplicate rule found" if present
+					line = strings.Replace(line, "Duplicate rule found: Duplicate rule found: ", "Duplicate rule found: ", 1)
+					// Add a single [WARN] prefix
+					filteredOutput += "[WARN] " + line + "\n"
+				}
+			}
+
+			// Verify rules were loaded correctly
+			if len(rules) == 0 && tc.name != "No duplicates" {
+				t.Errorf("No rules were loaded for test case: %s", tc.name)
+			}
+
+			// Check output
+			if filteredOutput != tc.expectedOutput {
+				t.Errorf("Test failed\nExpected:\n%s\nGot:\n%s", tc.expectedOutput, filteredOutput)
+			} else {
+				t.Logf("✅ Passed")
+			}
+		})
+	}
+}
