@@ -396,17 +396,7 @@ func Decrypt(password, ciphertext string, algorithm ...KeyDerivationAlgorithm) (
 // Note: This is less secure than Decrypt as it creates an unprotected string copy of the data.
 func DecryptToString(encrypted string, password string) (string, error) {
 	// Add debug information for checking argument order
-	debugPrint("[DEBUG] DecryptToString call - Password length: %d, Encrypted length: %d\n",
-		len(password), len(encrypted))
-
-	// Never show the password, always mask
-	debugPrint("[DEBUG] Password: '[REDACTED]'\n")
-
-	if len(encrypted) < shortEncPreview {
-		debugPrint("[DEBUG] Encrypted: '%s'\n", encrypted)
-	} else {
-		debugPrint("[DEBUG] Encrypted starts with: '%s'\n", encrypted[:min(shortEncPreview, len(encrypted))])
-	}
+	debugPrint("[DEBUG] DecryptToString call - Password: [REDACTED], Encrypted: [REDACTED]\n")
 
 	// Ensure we're not trying to decrypt the key itself
 	if len(encrypted) < 20 && strings.HasPrefix(password, encrypted) {
@@ -414,7 +404,14 @@ func DecryptToString(encrypted string, password string) (string, error) {
 	}
 
 	// Correctly pass arguments - first password, second encrypted text
-	return Decrypt(password, encrypted)
+	result, err := Decrypt(password, encrypted)
+	if err != nil {
+		debugPrint("[DEBUG] Decryption failed: [REDACTED]\n")
+		return "", err
+	}
+
+	debugPrint("[DEBUG] Decryption successful\n")
+	return result, nil
 }
 
 // min returns the smaller of x or y.

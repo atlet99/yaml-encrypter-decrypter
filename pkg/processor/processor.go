@@ -283,7 +283,12 @@ func debugLog(debug bool, format string, args ...interface{}) {
 				// Check for encryption keys or passwords
 				if strings.Contains(strings.ToLower(format), "password") ||
 					strings.Contains(strings.ToLower(format), "key") ||
-					strings.Contains(strArg, "YED_ENCRYPT_PASSWORD") {
+					strings.Contains(strArg, "YED_ENCRYPT_PASSWORD") ||
+					strings.Contains(strings.ToLower(format), "length") ||
+					strings.Contains(strings.ToLower(format), "size") ||
+					strings.Contains(strings.ToLower(format), "compressed") ||
+					strings.Contains(strings.ToLower(format), "decompressed") ||
+					strings.Contains(strings.ToLower(format), "style") {
 					safeArgs[i] = "********"
 				} else {
 					safeArgs[i] = arg
