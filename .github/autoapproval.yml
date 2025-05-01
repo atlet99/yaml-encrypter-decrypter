@@ -7,11 +7,5 @@ required_labels:
 apply_labels:
   - merge
 
-auto_merge_labels:
-  - auto-merge
-
 auto_squash_merge_labels:
   - auto-squash-merge
-
-auto_rebase_merge_labels:
-  - auto-rebase-merge
