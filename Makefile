@@ -32,6 +32,8 @@ test-manual-check:
 	@echo "Creating a copy of the test file for safe testing..."
 	@cp -f .test/cert-test.yml .test/cert-test-copy.yml
 	@cp -f .test/variables.yml .test/variables-copy.yml
+	@cp -f .test/variables.yml .test/variables-pb-copy.yml
+	@cp -f .test/variables.yml .test/variables-pb2-copy.yml
 	@echo "Step 1: Testing with dry-run mode on the copy..."
 	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=encrypt
 	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --config=.test/.yed_config.yml --file=.test/variables-copy.yml --operation=encrypt
@@ -40,7 +42,10 @@ test-manual-check:
 	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/variables-copy.yml --operation=encrypt
 	@echo "Step 3: Testing decrypt operation on the copy..."
 	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=decrypt
-	@echo "Tests completed. Original file was preserved, changes were made to .test/cert-test-copy.yml"
+	@echo "Step 4: Testing with PBKDF algorithm on the copy..."
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/variables-pb-copy.yml --operation=encrypt --algorithm=pbkdf2-sha256
+	$(OUTPUT_DIR)/$(BINARY_NAME) --debug --config=.test/.yed_config.yml --file=.test/variables-pb2-copy.yml --operation=encrypt --algorithm=pbkdf2-sha512
+	@echo "Tests completed."
 
 # Install project dependencies
 .PHONY: install-deps
