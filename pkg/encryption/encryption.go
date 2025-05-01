@@ -55,26 +55,10 @@ const (
 	Argon2idKeyLen  = 32
 	PBKDF2KeyLen    = 32
 
-	// Constants for cutting data parts for debugging
-	previewShortBytes = 4  // Minimum number of bytes for preview
-	previewBytes      = 16 // Standard number of bytes for preview
-	previewChars      = 20 // Number of characters to display for preview
-	maxCiphertextLen  = 64 // Maximum length for ciphertext
-	minPasswordLen    = 15 // Minimum password length (NIST SP 800-63B)
-	maxPasswordLen    = 64 // Maximum password length
-	shortPasswPreview = 10 // Number of characters to display at the beginning of password
-	shortEncPreview   = 20 // Number of characters to display at the beginning of encrypted text
-
 	// Constants for algorithm indicators
 	Argon2idIndicator     byte = 0x01
 	PBKDF2SHA256Indicator byte = 0x02
 	PBKDF2SHA512Indicator byte = 0x03
-
-	// Constants for percentage calculations
-	percentMultiplier = 100.0 // Multiplier for percentage calculations
-
-	// Constants for normalization factor in compression calculation
-	normalizationFactor = 1.0 // Normalization factor for ratio calculations
 
 	// Constants for secure logging
 	secureLogPrefix = "****"
@@ -118,21 +102,6 @@ func init() {
 	}
 }
 
-// debugPrint outputs debug messages only when debug mode is enabled
-func debugPrint(format string, args ...interface{}) {
-	if debugMode {
-		fmt.Printf(format, args...)
-	}
-}
-
-// maskSensitiveData masks sensitive data for display in debug logs
-func maskSensitiveData(data []byte) string {
-	if len(data) == 0 {
-		return "[]"
-	}
-	return secureLogPrefix + secureLogSuffix
-}
-
 // secureLog outputs debug messages with sensitive data masked
 func secureLog(format string, args ...interface{}) {
 	if !debugMode {
@@ -143,21 +112,12 @@ func secureLog(format string, args ...interface{}) {
 	safeFormat := strings.ReplaceAll(format, "%x", "%s")
 	safeFormat = strings.ReplaceAll(safeFormat, "%d", "%s")
 	safeFormat = strings.ReplaceAll(safeFormat, "%v", "%s")
-	safeFormat = strings.ReplaceAll(safeFormat, "%s", "%s")
 
 	// Create safe arguments
 	safeArgs := make([]interface{}, len(args))
 	for i, arg := range args {
-		switch v := arg.(type) {
-		case []byte:
-			safeArgs[i] = secureLogPrefix + secureLogSuffix
-		case string:
-			if len(v) > secureLogLength {
-				safeArgs[i] = secureLogPrefix + secureLogSuffix
-			} else {
-				safeArgs[i] = secureLogPrefix + secureLogSuffix
-			}
-		case int, int32, int64, uint, uint32, uint64:
+		switch arg.(type) {
+		case []byte, string, int, int32, int64, uint, uint32, uint64:
 			safeArgs[i] = secureLogPrefix + secureLogSuffix
 		default:
 			safeArgs[i] = secureLogPrefix + secureLogSuffix
