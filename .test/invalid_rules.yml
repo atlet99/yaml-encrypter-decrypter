@@ -1,0 +1,32 @@
+# This file contains invalid rules for testing error handling
+
+encryption:
+  # Missing required fields
+  rules:
+    # Rule without block field
+    - name: "missing_block_rule"
+      pattern: "*"
+      description: "This rule is missing the required block field"
+      
+    # Rule without pattern field
+    - name: "missing_pattern_rule"
+      block: "database"
+      description: "This rule is missing the required pattern field"
+      
+    # Rule without name field
+      block: "api"
+      pattern: "*"
+      description: "This rule is missing the required name field"
+      
+    # Rule with invalid action
+    - name: "invalid_action_rule"
+      block: "secrets"
+      pattern: "*"
+      action: "invalid_action" # Only 'encrypt' or 'none' are valid
+      description: "This rule has an invalid action"
+      
+  # Additional rules to test conflicts
+  include_rules:
+    - "non_existent_file.yml" # File doesn't exist
+    - "/invalid/path/*.yml"   # Invalid path
+    - "conflicts*.yml"        # Conflicting patterns 

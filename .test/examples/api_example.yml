@@ -1,0 +1,35 @@
+# Example API configuration for testing API rules
+
+api:
+  # API endpoints configuration
+  endpoints:
+    auth: "https://api.example.com/auth"
+    users: "https://api.example.com/users"
+    products: "https://api.example.com/products"
+    
+  # API authentication
+  secret_key: "api-secret-45jKm8zLpQr2xYv7"
+  client_id: "client-12345"
+  client_secret: "client-secret-Tb9sWx3zLpQrY7n2"
+  
+  # API tokens
+  access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example-token"
+  refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh-example"
+  
+  # API keys for services
+  github_key: "ghp_1a2b3c4d5e6f7g8h9i0j"
+  stripe_key: "sk_test_1a2b3c4d5e6f7g8h9i0j"
+  sendgrid_key: "SG.1a2b3c4d5e6f7g8h9i0j"
+  
+  # API passwords
+  service_password: "api-service-password-123"
+  webhook_password: "webhook-secure-password-456"
+  
+  # Rate limiting
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+    
+  # API versioning
+  version: "v2"
+  deprecated_versions: ["v1"] 

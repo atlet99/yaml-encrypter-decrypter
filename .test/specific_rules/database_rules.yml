@@ -1,0 +1,17 @@
+rules:
+  # Advanced database rules
+  - name: "db_connections"
+    block: "database.connections"
+    pattern: "**"
+    description: "Encrypt all connections data"
+    
+  - name: "db_users"
+    block: "database.users"
+    pattern: "**"
+    description: "Encrypt all database users data"
+    
+  - name: "skip_metrics"
+    block: "database.metrics"
+    pattern: "*"
+    action: "none"
+    description: "Skip encryption for metrics data" 

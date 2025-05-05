@@ -1,0 +1,34 @@
+# This file contains invalid rules for testing error handling
+
+encryption:
+  # Rules with different issues
+  rules:
+    # First rule is valid
+    - name: "valid_rule"
+      block: "auth"
+      pattern: "*"
+      description: "This rule is valid"
+      
+    # Second rule is now valid
+    - name: "database_rule"
+      block: "database"
+      pattern: "**"
+      description: "This rule is now valid"
+      
+    # Rule without name (this would be syntactically valid)
+    - block: "api"
+      pattern: "*"
+      description: "This rule is missing the required name field"
+      
+    # Rule with invalid action
+    - name: "invalid_action_rule"
+      block: "secrets"
+      pattern: "*"
+      action: "invalid_action" # Only 'encrypt' or 'none' are valid
+      description: "This rule has an invalid action"
+      
+  # Additional rules to test conflicts
+  include_rules:
+    - "non_existent_file.yml" # File doesn't exist
+    - "/invalid/path/*.yml"   # Invalid path
+    - ".test/conflicts*.yml"  # Conflicting patterns 

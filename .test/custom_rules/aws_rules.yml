@@ -1,0 +1,22 @@
+rules:
+  # AWS security rules
+  - name: "aws_secret_key"
+    block: "aws"
+    pattern: "secret_access_key"
+    description: "Encrypt AWS secret access key"
+    
+  - name: "aws_session_token"
+    block: "aws"
+    pattern: "session_token"
+    description: "Encrypt AWS session token"
+    
+  - name: "aws_credentials"
+    block: "aws.credentials"
+    pattern: "**"
+    description: "Encrypt all AWS credentials"
+    
+  - name: "skip_aws_regions"
+    block: "aws.regions"
+    pattern: "*"
+    action: "none"
+    description: "Skip encryption for AWS regions" 
