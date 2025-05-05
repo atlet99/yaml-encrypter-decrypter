@@ -12,9 +12,6 @@ permissions:
 jobs:
   update-release-version:
     name: Update .release-version with tag and build ID
-    # Run only if commit was made by a user other than github-actions[bot]
-    # or if commit does not contain [skip ci]
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') && github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
@@ -27,7 +24,6 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
-          token: ${{ secrets.CONTENT_RELEASE }}
 
       - name: Determine next tag
         run: |
@@ -62,10 +58,6 @@ jobs:
           
           git add .release-version
           git commit -m "Update .release-version with version and build ID"
-          
-          # Configure URL for using token
-          REPO_URL="https://x-access-token:${{ secrets.CONTENT_RELEASE }}@github.com/${GITHUB_REPOSITORY}.git"
-          git remote set-url origin "${REPO_URL}"
           git push origin HEAD:main
       
       - name: Create and push new tag
