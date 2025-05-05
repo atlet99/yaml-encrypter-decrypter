@@ -60,6 +60,8 @@ jobs:
           new_tag=$(head -n 1 .release-version)
           git tag $new_tag
           git push origin $new_tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.CONTENT_RELEASE }}
 
       - name: Trigger Release Workflow
         env:
