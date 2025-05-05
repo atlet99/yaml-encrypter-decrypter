@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"unicode"
@@ -142,13 +143,14 @@ const (
 	OperationDecrypt = "decrypt"
 
 	// Buffer and processing constants
-	DefaultBufferSize  = 1024
-	DefaultIndent      = 2
-	LargeFileThreshold = 1000
-	MaxParts           = 2
-	MaskLength         = 6
-	MinKeyLength       = 15 // Minimum length for encryption key (NIST SP 800-63B)
-	Base64BlockSize    = 4  // Block size for Base64 encoding
+	DefaultBufferSize    = 1024
+	DefaultIndent        = 2
+	LargeFileThreshold   = 1000
+	MaxParts             = 2
+	MaskLength           = 6
+	MinKeyLength         = 15 // Minimum length for encryption key (NIST SP 800-63B)
+	MinKeyLengthStandard = 20 // Minimum length for encryption key in standard processor
+	Base64BlockSize      = 4  // Block size for Base64 encoding
 
 	// Base64 padding constants
 	Base64NoPadding     = 0 // If length % 4 == 0, no padding needed
@@ -196,6 +198,11 @@ const (
 
 	// UnknownAlgorithm is the constant for unknown algorithm
 	UnknownAlgorithm = "unknown algorithm"
+
+	// Constants for YAML structure
+	linesPerRule = 6
+	// First rule starts after "encryption:" and "rules:"
+	firstRuleOffset = 5
 )
 
 // CurrentKeyDerivationAlgorithm is the algorithm to use for encryption
@@ -213,8 +220,10 @@ type Rule struct {
 // Config contains settings for YAML processing
 type Config struct {
 	Encryption struct {
-		Rules        []Rule `yaml:"rules"`
-		UnsecureDiff bool   `yaml:"unsecure_diff"`
+		Rules         []Rule   `yaml:"rules"`
+		UnsecureDiff  bool     `yaml:"unsecure_diff"`
+		IncludeRules  []string `yaml:"include_rules,omitempty"`  // Paths to additional rule files
+		ValidateRules bool     `yaml:"validate_rules,omitempty"` // Whether to validate rules (default: true)
 	} `yaml:"encryption"`
 	Key          string
 	Operation    string
@@ -283,7 +292,12 @@ func debugLog(debug bool, format string, args ...interface{}) {
 				// Check for encryption keys or passwords
 				if strings.Contains(strings.ToLower(format), "password") ||
 					strings.Contains(strings.ToLower(format), "key") ||
-					strings.Contains(strArg, "YED_ENCRYPT_PASSWORD") {
+					strings.Contains(strArg, "YED_ENCRYPT_PASSWORD") ||
+					strings.Contains(strings.ToLower(format), "length") ||
+					strings.Contains(strings.ToLower(format), "size") ||
+					strings.Contains(strings.ToLower(format), "compressed") ||
+					strings.Contains(strings.ToLower(format), "decompressed") ||
+					strings.Contains(strings.ToLower(format), "style") {
 					safeArgs[i] = "********"
 				} else {
 					safeArgs[i] = arg
@@ -687,11 +701,21 @@ func processScalarNodeWithExclusions(node *yaml.Node, path string, key, operatio
 
 	// Continue with standard node processing
 	debugLog(debug, "Processing scalar node as standard at path: %s", path)
-	return processScalarNodeStandard(node, path, key, operation, rules, debug)
+	return processScalarNodeStandard(node, path, operation, key, rules, debug)
 }
 
 // processScalarNodeStandard processes a scalar node for encryption or decryption
-func processScalarNodeStandard(node *yaml.Node, path string, key, operation string, rules []Rule, debug bool) error {
+func processScalarNodeStandard(node *yaml.Node, path string, operation string, key string, rules []Rule, debug bool) error {
+	// Check for valid operation
+	if operation != OperationEncrypt && operation != OperationDecrypt {
+		return fmt.Errorf("invalid operation: %s", operation)
+	}
+
+	// Check key strength
+	if len(key) < MinKeyLengthStandard {
+		return fmt.Errorf("key is too weak: length should be at least %d characters", MinKeyLengthStandard)
+	}
+
 	// Get rule to apply
 	ruleName, canApply := processRules(path, rules, debug)
 	if !canApply {
@@ -709,101 +733,43 @@ func processScalarNodeStandard(node *yaml.Node, path string, key, operation stri
 
 	// Process based on operation
 	if operation == OperationEncrypt {
+		// Skip if already encrypted
 		if strings.HasPrefix(node.Value, AES) {
 			debugLog(debug, "Value at path %s is already encrypted", path)
 			return nil
 		}
 
-		// Save the current value before encryption
-		originalValue := node.Value
+		// Save style information
+		styleSuffix := getStyleSuffix(node.Style)
 
-		// Save original style
-		originalStyle := node.Style
-
-		// Store original style information as a suffix
-		var styleSuffix string
-		switch originalStyle {
-		case yaml.LiteralStyle:
-			styleSuffix = "|" + StyleLiteral
-		case yaml.FoldedStyle:
-			styleSuffix = "|" + StyleFolded
-		case yaml.DoubleQuotedStyle:
-			styleSuffix = "|" + StyleDoubleQuoted
-		case yaml.SingleQuotedStyle:
-			styleSuffix = "|" + StyleSingleQuoted
-		default:
-			styleSuffix = "|" + StylePlain
-		}
-
-		encryptedValue, err := encryption.Encrypt(key, originalValue)
+		// Encrypt the value
+		encrypted, err := encryption.Encrypt(key, node.Value, CurrentKeyDerivationAlgorithm)
 		if err != nil {
-			return fmt.Errorf("error encrypting value at path %s: %w", path, err)
+			return fmt.Errorf("failed to encrypt value at path %s: %w", path, err)
 		}
 
-		// Set the value with style information
-		node.Value = AES + encryptedValue + styleSuffix
-
-		// Reset style to plain for encrypted values
-		node.Style = 0
-
-		// If node had a tag that should be removed upon encryption, do so
-		if node.Tag == "!!int" {
-			node.Tag = ""
-		}
-
-		debugLog(debug, "Value at path %s encrypted with style suffix %s", path, styleSuffix)
-	} else if operation == OperationDecrypt {
+		// Add style suffix and AES prefix
+		node.Value = AES + encrypted + styleSuffix
+		node.Style = 0 // Reset to plain style for encrypted values
+	} else {
+		// Skip if not encrypted
 		if !strings.HasPrefix(node.Value, AES) {
 			debugLog(debug, "Value at path %s is not encrypted", path)
-			return nil
+			return fmt.Errorf("value at path %s is not encrypted", path)
 		}
 
-		// Extract the encrypted value (skipping the AES marker) and handle style suffix
+		// Extract the encrypted value (skipping the AES marker)
 		encrypted := strings.TrimPrefix(node.Value, AES)
 
-		// Processing of multiline encrypted strings
-		if strings.Contains(encrypted, "\n") {
-			debugLog(debug, "Found multiline encrypted string at path %s, removing newlines...", path)
-			encrypted = strings.ReplaceAll(encrypted, "\n", "")
-		}
-
-		// Extract style suffix if present - find the last pipe character that might be in the encrypted value
-		styleSuffix := ""
-		styleInfo := yaml.Style(0) // Default plain style
-
-		// Find the last vertical bar followed by a known style suffix
-		for _, styleName := range []string{StyleLiteral, StyleFolded, StyleDoubleQuoted, StyleSingleQuoted, StylePlain} {
-			suffix := "|" + styleName
-			if strings.HasSuffix(encrypted, suffix) {
-				styleSuffix = styleName
-				encrypted = encrypted[:len(encrypted)-len(suffix)]
-
-				// Convert style suffix to yaml.Style
-				switch styleSuffix {
-				case StyleLiteral:
-					styleInfo = yaml.LiteralStyle
-				case StyleFolded:
-					styleInfo = yaml.FoldedStyle
-				case StyleDoubleQuoted:
-					styleInfo = yaml.DoubleQuotedStyle
-				case StyleSingleQuoted:
-					styleInfo = yaml.SingleQuotedStyle
-				}
-
-				debugLog(debug, "Found style suffix: %s, setting style to: %d", styleSuffix, styleInfo)
-				break
-			}
-		}
-
 		// Decrypt the value
-		decryptedValue, err := decryptNodeValue(encrypted, key, debug)
+		decrypted, err := encryption.DecryptToString(encrypted, key)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to decrypt value at path %s: %w", path, err)
 		}
 
 		// Set the decrypted value and apply style
-		node.Value = decryptedValue
-		applyNodeStyle(node, styleInfo, debug)
+		node.Value = decrypted
+		applyNodeStyle(node, 0, debug)
 	}
 
 	return nil
@@ -1132,6 +1098,61 @@ func maskNodeValues(node *yaml.Node, debug bool) *yaml.Node {
 // loadRules loads encryption rules from a config file
 func loadRules(configFile string, debug bool) ([]Rule, *Config, error) {
 	// Convert relative configFile to absolute if needed
+	configFile = resolveConfigPath(configFile, debug)
+
+	debugLog(debug, "[loadRules] Config file is: '%s'", configFile)
+
+	// Read and parse config file
+	config, err := readAndParseConfig(configFile, debug)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Initialize rules slice with main config rules
+	allRules := config.Encryption.Rules
+
+	// Set default value for ValidateRules if not specified
+	if !config.Encryption.ValidateRules {
+		config.Encryption.ValidateRules = true // Default to true
+	}
+
+	// Process included rules
+	includedRules, err := processIncludedRules(config, configFile, debug)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Combine main rules with included rules
+	allRules = append(allRules, includedRules...)
+
+	// Check if we found any rules at all
+	if len(allRules) == 0 {
+		debugLog(debug, "No rules found in main config or included files")
+		fmt.Println("Warning: No rules found in configuration. No encryption/decryption will be performed.")
+	} else {
+		debugLog(debug, "Loaded a total of %d rules", len(allRules))
+	}
+
+	// Replace the original rules with the combined set
+	config.Encryption.Rules = allRules
+
+	// Validate rules
+	if err := validateRules(config, debug); err != nil {
+		return nil, nil, err
+	}
+
+	// Log unsecure_diff setting
+	logUnsecureDiffSetting(config, debug)
+
+	// Copy UnsecureDiff value from encryption settings to main configuration
+	config.UnsecureDiff = config.Encryption.UnsecureDiff
+
+	debugLog(debug, "Loaded %d rules in total", len(config.Encryption.Rules))
+	return config.Encryption.Rules, config, nil
+}
+
+// resolveConfigPath converts relative configFile to absolute if needed
+func resolveConfigPath(configFile string, debug bool) string {
 	if configFile != "" && !filepath.IsAbs(configFile) {
 		absConfigFile, err := filepath.Abs(configFile)
 		if err == nil {
@@ -1141,43 +1162,278 @@ func loadRules(configFile string, debug bool) ([]Rule, *Config, error) {
 			debugLog(debug, "Failed to get absolute path for %s: %v", configFile, err)
 		}
 	}
+	return configFile
+}
 
-	debugLog(debug, "[loadRules] Config file is: '%s'", configFile)
-
+// readAndParseConfig reads and parses a YAML config file
+func readAndParseConfig(configFile string, debug bool) (*Config, error) {
 	// Read config file
 	content, err := os.ReadFile(configFile)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error reading config file: %w", err)
+		return nil, fmt.Errorf("error reading config file: %w", err)
 	}
 
 	// Parse config
 	var config Config
 	if err := yaml.Unmarshal(content, &config); err != nil {
-		return nil, nil, fmt.Errorf("error parsing config file: %w", err)
+		return nil, fmt.Errorf("error parsing config file: %w", err)
 	}
 
-	// Validate rules
+	return &config, nil
+}
+
+// processIncludedRules loads rules from included rule files
+func processIncludedRules(config *Config, configFile string, debug bool) ([]Rule, error) {
+	var includedRules []Rule
+
+	// Get the directory of the main config file to resolve relative paths
+	configDir := filepath.Dir(configFile)
+
+	// Log main config rules if found
+	if len(config.Encryption.Rules) > 0 {
+		debugLog(debug, "Found %d rules in main config file", len(config.Encryption.Rules))
+	} else {
+		debugLog(debug, "No rules found in main config, checking include_rules...")
+	}
+
+	// Process include_rules if specified
+	if len(config.Encryption.IncludeRules) > 0 {
+		for _, rulePattern := range config.Encryption.IncludeRules {
+			// Process the include file pattern (which may contain wildcards like rules[1-3].yml)
+			rules, err := loadRulesFromPattern(rulePattern, configDir, debug)
+			if err != nil {
+				debugLog(debug, "Error loading included rules from '%s': %v", rulePattern, err)
+				continue
+			}
+			includedRules = append(includedRules, rules...)
+		}
+	}
+
+	return includedRules, nil
+}
+
+// validateRules validates the loaded rules
+func validateRules(config *Config, debug bool) error {
+	// Skip validation if disabled or no rules
+	if !config.Encryption.ValidateRules || len(config.Encryption.Rules) == 0 {
+		return nil
+	}
+
+	// Basic validation - check for required fields
 	for _, rule := range config.Encryption.Rules {
 		if rule.Block == "" {
-			return nil, nil, fmt.Errorf("rule '%s' is missing block", rule.Name)
+			return fmt.Errorf("rule '%s' is missing block", rule.Name)
 		}
 		if rule.Pattern == "" {
-			return nil, nil, fmt.Errorf("rule '%s' is missing pattern", rule.Name)
+			return fmt.Errorf("rule '%s' is missing pattern", rule.Name)
 		}
 	}
 
-	// Log unsecure_diff setting
+	// Check for duplicate rules
+	if duplicates := checkDuplicateRules(config.Encryption.Rules, debug); len(duplicates) > 0 {
+		// If in debug mode, log all duplicates but still return an error for the first one
+		if debug {
+			for _, dup := range duplicates {
+				debugLog(debug, "[WARN] Duplicate rule found: %s", dup)
+			}
+		}
+		// Return first duplicate as error
+		return fmt.Errorf("rule conflict detected: %s", duplicates[0])
+	}
+
+	return nil
+}
+
+// logUnsecureDiffSetting logs a warning if unsecure_diff is enabled
+func logUnsecureDiffSetting(config *Config, debug bool) {
 	if config.Encryption.UnsecureDiff {
 		debugLog(debug, "WARNING: unsecure_diff is set to TRUE. Some sensitive data will be visible in diff mode, "+
 			"but password and encryption keys will still be masked.")
 	} else {
 		debugLog(debug, "unsecure_diff is set to FALSE. All sensitive data will be masked in diff mode.")
 	}
+}
 
-	// Copy UnsecureDiff value from encryption settings to main configuration
-	config.UnsecureDiff = config.Encryption.UnsecureDiff
+// Constants for working with rules
+const (
+	// RangeRegexMatchCount represents the expected number of groups in the range expression [0-9]
+	RangeRegexMatchCount = 3
+)
 
-	return config.Encryption.Rules, &config, nil
+// loadRulesFromPattern loads rules from files matching a pattern
+// Supports patterns like "rules[1-3].yml" or "*.yml"
+func loadRulesFromPattern(pattern string, baseDir string, debug bool) ([]Rule, error) {
+	var allRules []Rule
+
+	// If path is relative and doesn't start with "./" or "../", resolve it against the base directory
+	if !filepath.IsAbs(pattern) && !strings.HasPrefix(pattern, "./") && !strings.HasPrefix(pattern, "../") {
+		pattern = filepath.Join(baseDir, pattern)
+	} else if strings.HasPrefix(pattern, "./") || strings.HasPrefix(pattern, "../") {
+		// If the path is relative with explicit ./ or ../, resolve it against the current directory
+		// This preserves the user's intent to use a relative path
+		pattern = filepath.Clean(pattern)
+	}
+
+	debugLog(debug, "Resolving pattern '%s' (baseDir: '%s')", pattern, baseDir)
+
+	// Check if the pattern contains range syntax like [1-3]
+	rangeRegex := regexp.MustCompile(`\[(\d+)-(\d+)\]`)
+	matches := rangeRegex.FindStringSubmatch(pattern)
+
+	if len(matches) == RangeRegexMatchCount {
+		// Extract range bounds
+		start, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid range start in pattern '%s': %w", pattern, err)
+		}
+
+		end, err := strconv.Atoi(matches[2])
+		if err != nil {
+			return nil, fmt.Errorf("invalid range end in pattern '%s': %w", pattern, err)
+		}
+
+		debugLog(debug, "Processing range pattern from %d to %d", start, end)
+
+		// For each number in the range, construct the specific filename and check if it exists
+		for i := start; i <= end; i++ {
+			specificFile := strings.Replace(pattern, matches[0], strconv.Itoa(i), 1)
+			debugLog(debug, "Checking specific file for range pattern: %s", specificFile)
+
+			// Verify file exists and is valid
+			rules, err := loadRulesFromFile(specificFile, debug)
+			if err != nil {
+				// Log the error but continue with other files
+				debugLog(debug, "Error loading rules from '%s': %v", specificFile, err)
+				continue
+			}
+
+			allRules = append(allRules, rules...)
+		}
+	} else {
+		// Use filepath.Glob for wildcard patterns
+		debugLog(debug, "Using glob pattern: %s", pattern)
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("error processing glob pattern '%s': %w", pattern, err)
+		}
+
+		if len(matches) == 0 {
+			debugLog(debug, "No files found matching pattern '%s'", pattern)
+		} else {
+			debugLog(debug, "Found %d files matching pattern '%s'", len(matches), pattern)
+		}
+
+		for _, filePath := range matches {
+			// Skip if not .yml or .yaml
+			if !hasYamlExtension(filePath) {
+				debugLog(debug, "Skipping non-YAML file: %s", filePath)
+				continue
+			}
+
+			rules, err := loadRulesFromFile(filePath, debug)
+			if err != nil {
+				// Log the error but continue with other files
+				debugLog(debug, "Error loading rules from '%s': %v", filePath, err)
+				continue
+			}
+
+			allRules = append(allRules, rules...)
+		}
+	}
+
+	return allRules, nil
+}
+
+// loadRulesFromFile loads rules from a single file
+func loadRulesFromFile(filePath string, debug bool) ([]Rule, error) {
+	debugLog(debug, "Loading rules from file: %s", filePath)
+
+	// Verify the file has a YAML extension
+	if !hasYamlExtension(filePath) {
+		return nil, fmt.Errorf("file '%s' is not a YAML file", filePath)
+	}
+
+	// Read and parse the file
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %w", err)
+	}
+
+	// Try to parse as a file with encryption.rules structure first
+	var configWithEncryption struct {
+		Encryption struct {
+			Rules []Rule `yaml:"rules"`
+		} `yaml:"encryption"`
+	}
+
+	if err := yaml.Unmarshal(content, &configWithEncryption); err != nil {
+		debugLog(debug, "Error parsing file as encryption.rules structure: %v", err)
+	}
+
+	// If we found rules in the encryption.rules structure, use those
+	if len(configWithEncryption.Encryption.Rules) > 0 {
+		debugLog(debug, "Loaded %d rules from encryption.rules in file '%s'", len(configWithEncryption.Encryption.Rules), filePath)
+		return configWithEncryption.Encryption.Rules, nil
+	}
+
+	// Try to parse with rules at the top level
+	var configWithRules struct {
+		Rules []Rule `yaml:"rules"`
+	}
+
+	if err := yaml.Unmarshal(content, &configWithRules); err != nil {
+		return nil, fmt.Errorf("error parsing YAML in file '%s': %w", filePath, err)
+	}
+
+	debugLog(debug, "Loaded %d rules from top-level rules in file '%s'", len(configWithRules.Rules), filePath)
+	return configWithRules.Rules, nil
+}
+
+// hasYamlExtension checks if a file has .yml or .yaml extension
+func hasYamlExtension(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	return ext == ".yml" || ext == ".yaml"
+}
+
+// checkDuplicateRules checks for duplicate rules based on name, and on block+pattern+action combination
+func checkDuplicateRules(rules []Rule, debug bool) []string {
+	var duplicates []string
+	ruleMap := make(map[string]map[string]map[string]int) // block -> pattern -> action -> line number
+	nameMap := make(map[string]int)                       // rule name -> line number
+
+	for i, rule := range rules {
+		// Check for duplicate rule names
+		if previousLine, exists := nameMap[rule.Name]; exists {
+			// Calculate actual line numbers in YAML file
+			duplicateLine := i*linesPerRule + firstRuleOffset
+			originalLine := previousLine*linesPerRule + firstRuleOffset
+			msg := fmt.Sprintf("Duplicate rule name found: line %d: rule '%s' duplicates rule name at line %d",
+				duplicateLine, rule.Name, originalLine)
+			duplicates = append(duplicates, msg)
+		} else {
+			nameMap[rule.Name] = i
+		}
+
+		// Check for duplicate rule configurations (block + pattern + action)
+		if _, exists := ruleMap[rule.Block]; !exists {
+			ruleMap[rule.Block] = make(map[string]map[string]int)
+		}
+		if _, exists := ruleMap[rule.Block][rule.Pattern]; !exists {
+			ruleMap[rule.Block][rule.Pattern] = make(map[string]int)
+		}
+		if line, exists := ruleMap[rule.Block][rule.Pattern][rule.Action]; exists {
+			// Calculate actual line numbers in YAML file
+			duplicateLine := i*linesPerRule + firstRuleOffset
+			originalLine := line*linesPerRule + firstRuleOffset
+			msg := fmt.Sprintf("Duplicate rule configuration found: line %d: rule '%s' (block: '%s', pattern: '%s', action: '%s') duplicates rule at line %d",
+				duplicateLine, rule.Name, rule.Block, rule.Pattern, rule.Action, originalLine)
+			duplicates = append(duplicates, msg)
+		} else {
+			ruleMap[rule.Block][rule.Pattern][rule.Action] = i
+		}
+	}
+
+	return duplicates
 }
 
 // processRules processes rules in order of priority
@@ -2120,6 +2376,89 @@ func ProcessDiff(content []byte, config Config) error {
 	debugLog(config.Debug, "Printing differences")
 	printDiff(originalData.Content[0], encryptedData.Content[0], config.Debug, config.Encryption.UnsecureDiff, "")
 	debugLog(config.Debug, "Finished showDiff")
+
+	return nil
+}
+
+// LoadAdditionalRules loads rules from additional rule files specified in command line
+func LoadAdditionalRules(config *Config, configDir string, debug bool) ([]Rule, *Config, error) {
+	var includedRules []Rule
+
+	if len(config.Encryption.IncludeRules) > 0 {
+		for _, rulePattern := range config.Encryption.IncludeRules {
+			// Check if this is an absolute path
+			if filepath.IsAbs(rulePattern) {
+				debugLog(debug, "Using absolute path for include rule: %s", rulePattern)
+				// If it's an absolute path, use it directly
+				rules, err := loadRulesFromFile(rulePattern, debug)
+				if err != nil {
+					debugLog(debug, "Error loading included rules from '%s': %v", rulePattern, err)
+					continue
+				}
+				includedRules = append(includedRules, rules...)
+				continue
+			}
+
+			// If not an absolute path, try as a relative path first
+			resolvedPath := rulePattern
+			// If it doesn't have file:// prefix or wildcards, try to resolve it relative to configDir
+			if !strings.Contains(rulePattern, "*") && !strings.Contains(rulePattern, "[") && !strings.Contains(rulePattern, "]") {
+				fullPath := filepath.Join(configDir, rulePattern)
+				if _, err := os.Stat(fullPath); err == nil {
+					debugLog(debug, "Found file at path: %s", fullPath)
+					rules, err := loadRulesFromFile(fullPath, debug)
+					if err != nil {
+						debugLog(debug, "Error loading included rules from '%s': %v", fullPath, err)
+						continue
+					}
+					includedRules = append(includedRules, rules...)
+					continue
+				}
+			}
+
+			// Process the include file pattern (which may contain wildcards like rules[1-3].yml)
+			rules, err := loadRulesFromPattern(resolvedPath, configDir, debug)
+			if err != nil {
+				debugLog(debug, "Error loading included rules from '%s': %v", rulePattern, err)
+				continue
+			}
+			includedRules = append(includedRules, rules...)
+		}
+	}
+
+	// Check if we found any rules
+	if len(includedRules) == 0 {
+		debugLog(debug, "No additional rules found in included files")
+	} else {
+		debugLog(debug, "Loaded %d additional rules from included files", len(includedRules))
+	}
+
+	return includedRules, config, nil
+}
+
+// ValidateRules validates rules for conflicts
+func ValidateRules(rules []Rule, debug bool) error {
+	// Basic validation - check for required fields
+	for _, rule := range rules {
+		if rule.Block == "" {
+			return fmt.Errorf("rule '%s' is missing block", rule.Name)
+		}
+		if rule.Pattern == "" {
+			return fmt.Errorf("rule '%s' is missing pattern", rule.Name)
+		}
+	}
+
+	// Check for duplicate rules
+	if duplicates := checkDuplicateRules(rules, debug); len(duplicates) > 0 {
+		// If in debug mode, log all duplicates but still return an error for the first one
+		if debug {
+			for _, dup := range duplicates {
+				debugLog(debug, "[WARN] Duplicate rule found: %s", dup)
+			}
+		}
+		// Return first duplicate as error
+		return fmt.Errorf("rule conflict detected: %s", duplicates[0])
+	}
 
 	return nil
 }

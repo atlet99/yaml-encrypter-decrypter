@@ -1,0 +1,56 @@
+# Example database configuration for testing database rules
+
+database:
+  postgres:
+    host: localhost
+    port: 5432
+    user: postgres
+    password: postgres_secret_password
+    database: main_db
+    ssl: true
+    
+  mysql:
+    host: db.example.com
+    port: 3306
+    user: mysql_user
+    password: mysql_complex_password!123
+    database: app_database
+    
+  redis:
+    host: redis.example.com
+    port: 6379
+    password: redis_auth_key_12345
+    database: 0
+    
+  mongodb:
+    host: mongo.example.com
+    port: 27017
+    user: mongo_admin
+    password: mongodb_secret_pwd_789
+    database: application
+    
+  # Database connection strings
+  connections:
+    main: "postgresql://postgres:postgres_secret_password@localhost:5432/main_db?sslmode=require"
+    cache: "redis://:redis_auth_key_12345@redis.example.com:6379/0"
+    document_store: "mongodb://mongo_admin:mongodb_secret_pwd_789@mongo.example.com:27017/application"
+    
+  # User credentials for applications
+  users:
+    admin:
+      username: admin
+      password: superadmin123
+    readonly:
+      username: reader
+      password: readonly456
+      
+  # Database secrets
+  secret_api_key: "db-api-Wj8b2kLpQt5xZn7C"
+  secret_backup_token: "backup-token-yTqPm3nX9vKs2Bz5"
+  
+  # Metrics settings - should not be encrypted
+  metrics:
+    enabled: true
+    interval: 60
+    retention: 30
+    endpoint: "https://metrics.example.com/collect" 

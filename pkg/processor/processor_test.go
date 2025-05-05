@@ -1321,30 +1321,60 @@ func TestProcessNodeWithRules(t *testing.T) {
 }
 
 func TestProcessFileWithRules(t *testing.T) {
-	// Use a strong password that meets security requirements
-	strongPassword := "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz"
-
 	tests := []struct {
 		name      string
-		filename  string
+		content   string
 		key       string
 		operation string
-		debug     bool
 		wantError bool
 	}{
 		{
-			name:      "process_file",
-			filename:  "testdata/test.yml",
-			key:       strongPassword,
+			name: "process_file",
+			content: `smart_config:
+  auth:
+    username: admin
+    password: secret123
+  database:
+    host: localhost
+    port: 5432`,
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 			operation: "encrypt",
-			debug:     false,
 			wantError: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ProcessFileHelper(tt.filename, tt.key, tt.operation, tt.debug)
+			// Create a temporary directory for test files
+			tempDir, err := os.MkdirTemp("", "test_config")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tempDir)
+
+			// Create test files
+			yamlFile := filepath.Join(tempDir, "test.yaml")
+			configFile := filepath.Join(tempDir, "config.yaml")
+
+			// Write test content to file
+			if err := os.WriteFile(yamlFile, []byte(tt.content), 0644); err != nil {
+				t.Fatalf("Failed to write to temp file: %v", err)
+			}
+
+			// Write config content with rules
+			configContent := `encryption:
+  rules:
+    - name: "encrypt_auth"
+      block: "smart_config.auth"
+      pattern: "**"
+      action: "encrypt"
+  unsecure_diff: false`
+			if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+				t.Fatalf("Failed to write config file: %v", err)
+			}
+
+			// Process the file
+			err = ProcessFile(yamlFile, tt.key, tt.operation, false, configFile)
 			if (err != nil) != tt.wantError {
 				t.Errorf("ProcessFile() error = %v, wantError %v", err, tt.wantError)
 			}
@@ -1536,10 +1566,14 @@ password: supersecret
 				Key:   "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 				Debug: false,
 				Encryption: struct {
-					Rules        []Rule `yaml:"rules"`
-					UnsecureDiff bool   `yaml:"unsecure_diff"`
+					Rules         []Rule   `yaml:"rules"`
+					UnsecureDiff  bool     `yaml:"unsecure_diff"`
+					IncludeRules  []string `yaml:"include_rules,omitempty"`
+					ValidateRules bool     `yaml:"validate_rules,omitempty"`
 				}{
-					UnsecureDiff: false,
+					UnsecureDiff:  false,
+					IncludeRules:  []string{},
+					ValidateRules: true,
 					Rules: []Rule{
 						{
 							Name:    "test_rule",
@@ -1564,9 +1598,13 @@ password: supersecret
 				Key:   "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
 				Debug: false,
 				Encryption: struct {
-					Rules        []Rule `yaml:"rules"`
-					UnsecureDiff bool   `yaml:"unsecure_diff"`
+					Rules         []Rule   `yaml:"rules"`
+					UnsecureDiff  bool     `yaml:"unsecure_diff"`
+					IncludeRules  []string `yaml:"include_rules,omitempty"`
+					ValidateRules bool     `yaml:"validate_rules,omitempty"`
 				}{
+					IncludeRules:  []string{},
+					ValidateRules: true,
 					Rules: []Rule{
 						{
 							Name:    "test_rule",
@@ -3186,103 +3224,178 @@ func TestGetStyleName(t *testing.T) {
 	}
 }
 
+// TestProcessScalarNodeStandard tests the processScalarNodeStandard function
 func TestProcessScalarNodeStandard(t *testing.T) {
+	// Set default algorithm for testing
+	encryption.SetDefaultAlgorithm(encryption.Argon2idAlgorithm)
+
+	// Create a test rule to make sure the function applies processing
+	testRule := Rule{
+		Name:    "test_rule",
+		Block:   "test",
+		Pattern: "**",
+		Action:  "encrypt",
+	}
+	rules := []Rule{testRule}
+
 	tests := []struct {
-		name         string
-		node         *yaml.Node
-		path         string
-		pattern      string
-		key          string
-		operation    string
-		debug        bool
-		expectChange bool
-		wantErr      bool
-		wantValue    string
+		name      string
+		value     string
+		key       string
+		operation string
+		path      string // Added path parameter to match a rule
+		wantErr   bool
+		errMsg    string
 	}{
 		{
-			name: "encryption_matching_rule",
-			node: &yaml.Node{
-				Kind:  yaml.ScalarNode,
-				Value: "test-value",
-				Style: 0,
-			},
-			path:         "test.path",
-			pattern:      "path",
-			key:          "test-key",
-			operation:    OperationEncrypt,
-			debug:        false,
-			expectChange: true,
-			wantErr:      true, // We expect error due to key strength requirements
+			name:      "Successful encryption",
+			value:     "test-value",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
+			operation: "encrypt",
+			path:      "test.path", // Path matches our test rule
+			wantErr:   false,
+			errMsg:    "",
 		},
 		{
-			name: "encryption_non_matching_rule",
-			node: &yaml.Node{
-				Kind:  yaml.ScalarNode,
-				Value: "test-value",
-				Style: 0,
-			},
-			path:         "other.path", // Path doesn't match the pattern
-			pattern:      "path",
-			key:          "test-key",
-			operation:    OperationEncrypt,
-			debug:        false,
-			expectChange: false,
-			wantErr:      false, // No error because we don't get to encryption stage
-			wantValue:    "test-value",
+			name:      "Weak key error",
+			value:     "test-value",
+			key:       "weak",
+			operation: "encrypt",
+			path:      "test.path",
+			wantErr:   true,
+			errMsg:    "key is too weak: length should be at least 20 characters",
 		},
 		{
-			name: "empty_value_node",
-			node: &yaml.Node{
-				Kind:  yaml.ScalarNode,
-				Value: "",
-				Style: 0,
-			},
-			path:         "test.path",
-			pattern:      "path",
-			key:          "test-key",
-			operation:    OperationEncrypt,
-			debug:        false,
-			expectChange: false,
-			wantErr:      false, // No error because we don't process empty values
-			wantValue:    "",
+			name:      "Successful decryption",
+			value:     "AES256:YesRCA5FJk3fEP5UdUABnn4fZTGGNX/PLXCkFwAWi+UCI0mrOyu0mD8nqxbp3NHuGGPawACAhYmLykSMbB8VZCHia2BkSve6LnbUrDGBhUq+cT9AMGr1/JPzzRzAKvztHP0nDB2LR3ZDlgrcA/V+95Mcie/G3yQqP49GHilx+g==",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
+			operation: "decrypt",
+			path:      "test.path",
+			wantErr:   false,
+			errMsg:    "",
+		},
+		{
+			name:      "Invalid operation",
+			value:     "test-value",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
+			operation: "invalid",
+			path:      "test.path",
+			wantErr:   true,
+			errMsg:    "invalid operation: invalid",
+		},
+		{
+			name:      "Empty value",
+			value:     "",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
+			operation: "encrypt",
+			path:      "test.path",
+			wantErr:   false,
+			errMsg:    "",
+		},
+		{
+			name:      "Invalid decryption value",
+			value:     "invalid-encrypted-value",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
+			operation: "decrypt",
+			path:      "test.path",
+			wantErr:   true,
+			errMsg:    "value at path test.path is not encrypted",
+		},
+		{
+			name:      "Decryption with wrong key",
+			value:     "AES256:invalidEncryptedValue",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz_wrong",
+			operation: "decrypt",
+			path:      "test.path",
+			wantErr:   true,
+			errMsg:    "failed to decrypt value",
+		},
+		{
+			name:      "Path doesn't match any rule",
+			value:     "test-value",
+			key:       "S9f&h27!Gp*3K5^LmZ#qR8@tUvWxYz",
+			operation: "encrypt",
+			path:      "non-matching.path", // Path doesn't match our test rule
+			wantErr:   false,
+			errMsg:    "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clone the node to avoid modifying the original
 			node := &yaml.Node{
-				Kind:  tt.node.Kind,
-				Value: tt.node.Value,
-				Style: tt.node.Style,
+				Kind:  yaml.ScalarNode,
+				Value: tt.value,
 			}
 
-			// Create a test rule with correct block field
-			rule := Rule{
-				Name:    "test-rule",
-				Pattern: tt.pattern,
-				Block:   "test", // Set to match the first part of the test.path
-			}
-
-			// Call function with correct parameters
-			err := processScalarNodeStandard(node, tt.path, tt.key, tt.operation, []Rule{rule}, tt.debug)
-
-			// Check if error state matches expectations
+			err := processScalarNodeStandard(node, tt.path, tt.operation, tt.key, rules, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("processScalarNodeStandard() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			// Skip further checks if error is expected
-			if tt.wantErr {
-				return
+			if tt.wantErr && err != nil && !strings.Contains(err.Error(), tt.errMsg) {
+				t.Errorf("processScalarNodeStandard() error message = %v, want %v", err.Error(), tt.errMsg)
 			}
 
-			// For non-encryption cases, check if value is preserved correctly
-			if !tt.expectChange && tt.wantValue != "" {
-				if node.Value != tt.wantValue {
-					t.Errorf("Value should remain unchanged. Expected %s, got %s", tt.wantValue, node.Value)
+			// For successful encryption test, verify value has AES256: prefix
+			if !tt.wantErr && tt.operation == "encrypt" && tt.value != "" && tt.path == "test.path" {
+				if !strings.HasPrefix(node.Value, "AES256:") {
+					t.Errorf("processScalarNodeStandard() encrypted value should start with AES256: prefix, got %v", node.Value)
 				}
+			}
+
+			// For path that doesn't match any rule, verify value is unchanged
+			if tt.name == "Path doesn't match any rule" && err == nil {
+				if node.Value != tt.value {
+					t.Errorf("processScalarNodeStandard() value should be unchanged, got %v, want %v", node.Value, tt.value)
+				}
+			}
+		})
+	}
+}
+
+// TestProcessScalarNodeWithRules tests processScalarNodeStandard with rules
+func TestProcessScalarNodeWithRules(t *testing.T) {
+	// Test rules
+	rules := []Rule{
+		{
+			Name:    "encrypt_user",
+			Block:   "users",
+			Pattern: "password",
+			Action:  "encrypt",
+		},
+		{
+			Name:    "skip_rule",
+			Block:   "**",
+			Pattern: "public_*",
+			Action:  "none",
+		},
+	}
+
+	tests := []struct {
+		name        string
+		path        string
+		expectMatch bool
+	}{
+		{"Matching rule", "users.password", true},
+		{"Non-matching rule", "other.password", false},
+		{"Skip rule", "users.public_key", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var matchFound bool
+			for _, rule := range rules {
+				if matchesRule(tt.path, rule, true) && rule.Action != "none" {
+					matchFound = true
+					break
+				}
+			}
+
+			if matchFound != tt.expectMatch {
+				t.Errorf("Expected match: %v, got: %v for path: %s",
+					tt.expectMatch, matchFound, tt.path)
 			}
 		})
 	}

@@ -1,0 +1,26 @@
+# This file contains invalid YAML syntax
+
+encryption:
+  rules:
+  - name: "valid_rule"
+    block: "database" 
+    pattern: "*"
+    description: "This is a valid rule"
+  
+  # Invalid YAML indentation and structure
+  include_rules:
+  - "file1.yml"
+ - "file2.yml"  # Wrong indentation
+   
+  validate_rules: true
+    nested_value: this is not properly nested  # Wrong indentation
+
+  # Missing colon
+  unsecure_diff true
+  
+  # Unclosed quote
+  description: "This string never ends
+
+# Invalid tabs vs spaces mixing
+		bad_tabs:
+      mixed_indent: "This uses inconsistent indentation" 

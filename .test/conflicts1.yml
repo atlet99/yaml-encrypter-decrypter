@@ -1,0 +1,13 @@
+encryption:
+  rules:
+    # Conflicting rule (same name as in another file)
+    - name: "api_key_rule"  # This name already exists in .yed_config.yml
+      block: "api"
+      pattern: "key"
+      description: "This rule conflicts with an existing rule"
+    
+    # Overlapping rule
+    - name: "encrypt_all"
+      block: "*"
+      pattern: "**"
+      description: "Encrypt everything (will conflict with rules that use action: none)" 

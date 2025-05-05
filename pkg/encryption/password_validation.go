@@ -82,7 +82,7 @@ func (e *PasswordStrengthError) Error() string {
 
 // ValidatePasswordStrength checks if a password meets strength requirements
 func ValidatePasswordStrength(password string) error {
-	fmt.Printf("[DEBUG] Validating password strength (length: %d)\n", len(password))
+	fmt.Printf("[DEBUG] Validating password strength\n")
 
 	var problems []string
 
@@ -94,12 +94,12 @@ func ValidatePasswordStrength(password string) error {
 
 	// Check password length
 	if len(password) < PasswordMinLength {
-		fmt.Printf("[DEBUG] Password too short (minimum: %d)\n", PasswordMinLength)
+		fmt.Printf("[DEBUG] Password too short\n")
 		problems = append(problems, fmt.Sprintf("Password must be at least %d characters long", PasswordMinLength))
 	}
 
 	if len(password) > PasswordMaxLength {
-		fmt.Printf("[DEBUG] Password too long (maximum: %d)\n", PasswordMaxLength)
+		fmt.Printf("[DEBUG] Password too long\n")
 		problems = append(problems, fmt.Sprintf("Password must not exceed %d characters", PasswordMaxLength))
 	}
 

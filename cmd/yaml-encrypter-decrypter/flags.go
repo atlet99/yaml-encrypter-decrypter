@@ -12,17 +12,19 @@ import (
 
 // CLI flags
 type appFlags struct {
-	filename    string
-	key         string
-	operation   string
-	dryRun      bool
-	diff        bool
-	debug       bool
-	showVersion bool
-	algorithm   string
-	benchmark   bool
-	benchFile   string
-	configPath  string
+	filename      string
+	key           string
+	operation     string
+	dryRun        bool
+	diff          bool
+	debug         bool
+	showVersion   bool
+	algorithm     string
+	benchmark     bool
+	benchFile     string
+	configPath    string
+	validateRules bool
+	includeRules  string
 }
 
 // parseFlags parses command line arguments and returns an appFlags struct
@@ -61,12 +63,19 @@ func parseFlags() appFlags {
 	flag.StringVar(&flags.configPath, "config", "", "Path to the .yed_config.yml file (default: .yed_config.yml in current directory)")
 	flag.StringVar(&flags.configPath, "c", "", "")
 
+	flag.BoolVar(&flags.validateRules, "validate", false, "Validate configuration and rules without performing encryption/decryption")
+	flag.BoolVar(&flags.validateRules, "C", false, "")
+
 	// Performance analysis flags
 	flag.BoolVar(&flags.benchmark, "benchmark", false, "Run performance benchmarks")
 	flag.BoolVar(&flags.benchmark, "b", false, "")
 
 	flag.StringVar(&flags.benchFile, "bench-file", "", "Path to save benchmark results (default: stdout)")
 	flag.StringVar(&flags.benchFile, "B", "", "")
+
+	// Additional rule files
+	flag.StringVar(&flags.includeRules, "include-rules", "", "Comma-separated list of additional rule files to include")
+	flag.StringVar(&flags.includeRules, "i", "", "")
 
 	// Override default usage
 	flag.Usage = func() {
@@ -101,6 +110,8 @@ func parseFlags() appFlags {
 		fmt.Fprintln(os.Stderr, "  -algorithm, -a 	<string> 	Key derivation algorithm:")
 		fmt.Fprintln(os.Stderr, "                         		argon2id (default), pbkdf2-sha256, pbkdf2-sha512")
 		fmt.Fprintln(os.Stderr, "  -config, -c 		<string>   	Path to config file (default: .yed_config.yml)")
+		fmt.Fprintln(os.Stderr, "  -validate, -C          		Validate configuration and rules without performing any operation")
+		fmt.Fprintln(os.Stderr, "  -include-rules, -i <string>   	Comma-separated list of additional rule files to include")
 		fmt.Fprintln(os.Stderr, "")
 
 		fmt.Fprintln(os.Stderr, "Performance Analysis:")

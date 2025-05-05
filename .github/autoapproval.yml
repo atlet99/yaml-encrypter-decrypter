@@ -1,0 +1,16 @@
+_extends: github-settings
+
+from_owner:
+  - atlet99
+
+required_labels:
+  - ready
+
+apply_labels:
+  - auto-squash-merge
+
+blacklisted_labels:
+  - invalid
+
+auto_squash_merge_labels:
+  - auto-squash-merge

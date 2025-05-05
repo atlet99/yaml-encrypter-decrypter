@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added detailed documentation for rule configuration in README.md
 - Added line numbers in diff output for easier identification of changes
 - Added Staticcheck static analyzer integration for improved code quality checks
+- Added comprehensive issue templates:
+  - Bug report template with automatic `bug` and `help wanted` labels
+  - Feature request template with `enhancement` and `good first issue` labels
+  - Question/Discussion template with `question` and `help wanted` labels
+  - Added detailed sections for context and reproduction steps
+  - Included automatic assignee for bug reports and feature requests
+  - Added labels guide section to explain available labels
+  - Enhanced templates with clear instructions and examples
 - Added Makefile commands for code quality tooling:
   - `upgrade-deps` command for updating all dependencies to latest versions
   - `staticcheck` command for running static analysis
@@ -98,6 +106,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added benchmark arguments in console output
 - Added multiline encryption/decryption support
 - Added improved debug information with detailed comments for each stage and function
+- Enhanced rule handling system:
+  - Added support for loading rules from included rule files
+  - Added support for wildcard patterns in included rule files
+  - Added support for ranges in included rule files (e.g., `rules[1-3].yml`)
+  - Added validation of rule names to prevent duplicate rule names
+  - Added better error messages for rule conflicts with line number references
+  - Added configurable rule validation via `validate_rules` setting
+- Refactored rule loading system for improved modularity and error handling:
+  - Added `resolveConfigPath` function to properly handle absolute and relative paths
+  - Added `readAndParseConfig` function for better config file parsing
+  - Added `processIncludedRules` function for handling included rule files
+  - Added `validateRules` function with comprehensive rule validation
+  - Added `logUnsecureDiffSetting` function to warn about sensitive data visibility
+  - Added `loadRulesFromPattern` function with glob and range pattern support
+  - Added `loadRulesFromFile` function with multiple rule formats support
+  - Added `hasYamlExtension` function to validate YAML file extensions
+- Improved error messages:
+  - Added more descriptive error messages for decryption failures
+  - Added path information to encryption/decryption error messages
+  - Added rule validation error messages with detailed conflict information
+- Added `LoadAdditionalRules` function to process rules from additional files
+- Added `ValidateRules` function for standalone rule validation
 
 ### Changed
 - [YED-004] Updated Go version to 1.24.1
@@ -188,6 +218,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed CI configuration with version info for Docker images and GitHub releases
 - Improved flags for best practices
 - Updated .yed_config.yml configuration
+- Improved rule handling and error messages:
+  - Enhanced rule validation to check for duplicate rule names
+  - Updated error message format for rule conflicts to include line numbers
+  - Improved rule documentation with better examples
+  - Changed error messages to include path information for easier debugging
+  - Refactored rule processing code into smaller, more focused functions
+  - Improved rule file resolution for both absolute and relative paths
+  - Enhanced handling of rule inclusion with better error reporting
 
 ### Dependencies
 - [YED-009] Updated all dependencies to latest stable versions
@@ -240,6 +278,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed encrypted value length information from debug logs
   - Created separate helper functions to prevent sensitive data exposure
   - Improved masking of sensitive data in all output modes
+- Enhanced sensitive data protection in debug mode:
+  - Masked password lengths and encryption key information
+  - Removed sensitive data from debug logs in password validation
+  - Improved masking of encrypted data details in decryption process
+  - Added protection for YAML style information that might contain sensitive data
+  - Enhanced security of debug output in encryption/decryption operations
 
 ### Fixed
 - Fixed argument order in encryption/decryption function calls to properly handle key and value parameters

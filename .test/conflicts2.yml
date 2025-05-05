@@ -1,0 +1,15 @@
+encryption:
+  rules:
+    # Another conflicting rule with skip_axel_fix from main config
+    - name: "skip_axel_fix"  # Rule with same name exists in main config
+      block: "different_block"
+      pattern: "*"
+      action: "none"
+      description: "This conflicts with rule in main config"
+    
+    # This rule will conflict with encrypt_all from conflicts1.yml
+    - name: "skip_database"
+      block: "database"
+      pattern: "**"
+      action: "none"
+      description: "This conflicts with encrypt_all rule" 

@@ -527,8 +527,11 @@ func TestSensitiveValueDetection(t *testing.T) {
 
 // TestFileProcessorProcessFile tests the ProcessFile function with various scenarios
 func TestFileProcessorProcessFile(t *testing.T) {
+	// Set default algorithm for testing
+	encryption.SetDefaultAlgorithm(encryption.Argon2idAlgorithm)
+
 	// Create a test key
-	testKey := "K9#mP2$vL5@nR8&qX3"
+	testKey := "K9#mP2$vL5@nR8&qX3*zAb4C" // Updated to meet minimum length of 20 characters
 
 	// First, run encryption test to get encrypted value
 	t.Run("encrypt_simple_yaml", func(t *testing.T) {
@@ -854,7 +857,7 @@ func TestFileProcessorEmptyConfig(t *testing.T) {
 
 // Helper function to create an encrypted value for testing
 func createEncryptedValue(t *testing.T, plaintext, key string) string {
-	encrypted, err := encryption.Encrypt(plaintext, key)
+	encrypted, err := encryption.Encrypt(key, plaintext, encryption.Argon2idAlgorithm)
 	if err != nil {
 		t.Fatalf("Failed to encrypt test value: %v", err)
 	}
@@ -863,7 +866,10 @@ func createEncryptedValue(t *testing.T, plaintext, key string) string {
 
 // TestEncryptionHelper tests the createEncryptedValue function
 func TestEncryptionHelper(t *testing.T) {
-	testKey := "K9#mP2$vL5@nR8&qX3"
+	// Set default algorithm for testing
+	encryption.SetDefaultAlgorithm(encryption.Argon2idAlgorithm)
+
+	testKey := "K9#mP2$vL5@nR8&qX3*zAb4C" // Updated to meet minimum length of 20 characters
 	plaintext := "H7$kM4@nP9#vL2!qX5"
 
 	// Use the helper function
@@ -932,6 +938,9 @@ encryption:
 
 // TestProcessFileErrorHandling tests error handling in ProcessFile
 func TestProcessFileErrorHandling(t *testing.T) {
+	// Set default algorithm for testing
+	encryption.SetDefaultAlgorithm(encryption.Argon2idAlgorithm)
+
 	tests := []struct {
 		name        string
 		yamlContent string
@@ -950,7 +959,7 @@ func TestProcessFileErrorHandling(t *testing.T) {
       pattern: "password"
       action: "encrypt"
   unsecure_diff: false`,
-			key:         "K9#mP2$vL5@nR8&qX3",
+			key:         "K9#mP2$vL5@nR8&qX3*zAb4C", // Updated to meet minimum length
 			operation:   OperationEncrypt,
 			expectError: true,
 		},

@@ -1,0 +1,21 @@
+rules:
+  # API security rules
+  - name: "api_secrets"
+    block: "api"
+    pattern: "secret_*"
+    description: "Encrypt API secrets"
+    
+  - name: "api_keys"
+    block: "api"
+    pattern: "*_key"
+    description: "Encrypt all API keys"
+    
+  - name: "api_tokens"
+    block: "api"
+    pattern: "*_token"
+    description: "Encrypt all API tokens"
+    
+  - name: "api_passwords"
+    block: "api"
+    pattern: "*_password"
+    description: "Encrypt all API passwords" 
