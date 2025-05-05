@@ -1,0 +1,43 @@
+# Example AWS configuration for testing AWS rules
+
+aws:
+  # AWS account credentials
+  access_key_id: "AKIA1A2B3C4D5E6F7G8H"
+  secret_access_key: "aws-secret-key-1a2b3c4d5e6f7g8h9i0j"
+  session_token: "IQoJb3JpZ2luX2VjEGMaCXVzLWVhc3QtMSJHMEUCIQD..."
+  
+  # AWS regions
+  default_region: "us-east-1"
+  regions:
+    - "us-east-1"
+    - "us-west-2"
+    - "eu-central-1"
+    - "ap-southeast-1"
+  
+  # AWS S3 configuration
+  s3:
+    default_bucket: "my-app-bucket"
+    backup_bucket: "my-app-backup"
+    access_level: "private"
+    
+  # AWS EC2 configuration
+  ec2:
+    instance_type: "t3.micro"
+    key_name: "my-ec2-key"
+    ami_id: "ami-0c55b159cbfafe1f0"
+    
+  # AWS Lambda configuration
+  lambda:
+    function_name: "my-app-function"
+    runtime: "nodejs16.x"
+    memory: 512
+    timeout: 30
+    
+  # AWS credentials for specific services
+  credentials:
+    rds:
+      username: "rds_admin"
+      password: "rds-password-1a2b3c4d"
+    dynamodb:
+      access_key: "AKIA1A2B3C4D5EEXAMPLE"
+      secret_key: "dynamo-secret-1a2b3c4d5e6f7g8h9i0j" 

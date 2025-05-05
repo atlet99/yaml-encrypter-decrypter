@@ -2,6 +2,16 @@ encryption:
   # General settings from main config
   unsecure_diff: true # Set to true to show actual values in diff mode
   
+  # Additional rule files (supports wildcards and ranges like rules[1-3].yml)
+  include_rules:
+    - "custom_rules/*.yml"
+    - "specific_rules/database_rules.yml"
+    - "rules/*.yml"
+    # - "conflicts*.yml"  # Commented out to avoid rule conflicts in automated tests
+  
+  # Validate all rules for correctness (default: true)
+  validate_rules: true
+  
   rules:
     # Rules from main config (fixed skip_axel_fix block)
     - name: "skip_axel_fix"
@@ -28,9 +38,9 @@ encryption:
       pattern: "password"
       description: "Encrypt password field"
     - name: "api_key_rule"
-      block: "secrets"
+      block: "api"
       pattern: "api_key"
-      description: "Encrypt API key"
+      description: "Encrypt API keys"
     - name: "private_key_rule"
       block: "secrets"
       pattern: "private_key"

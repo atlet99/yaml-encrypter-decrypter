@@ -1,0 +1,26 @@
+rules:
+  # Database connection rules
+  - name: "postgres_password"
+    block: "database.postgres"
+    pattern: "password"
+    description: "Encrypt PostgreSQL password"
+    
+  - name: "mysql_password"
+    block: "database.mysql"
+    pattern: "password"
+    description: "Encrypt MySQL password"
+    
+  - name: "redis_password"
+    block: "database.redis"
+    pattern: "password"
+    description: "Encrypt Redis password"
+    
+  - name: "mongodb_password"
+    block: "database.mongodb"
+    pattern: "password"
+    description: "Encrypt MongoDB password"
+    
+  - name: "global_db_secrets"
+    block: "database"
+    pattern: "secret_*"
+    description: "Encrypt all secret fields in database config" 

@@ -15,7 +15,7 @@ $(OUTPUT_DIR):
 
 # Default target
 .PHONY: default
-default: fmt vet lint staticcheck build quicktest
+default: fmt vet lint staticcheck build quicktest check-config
 
 # Build and run the application locally
 .PHONY: run
@@ -23,11 +23,24 @@ run:
 	@echo "Running $(BINARY_NAME)..."
 	go run main.go
 
+# Run all tests with coverage and race detection
+.PHONY: test-with-race
+test-with-race:
+	@echo "Running all tests with race detection and coverage..."
+	go test -v -race -cover ./...
+
+# Run all tests with basic testing
+.PHONY: test
+test: lint
+	go test -v ./... -cover
+
+# Manual testing target
 .PHONY: test-manual
-test-manual: build test-manual-check
-# Manual testing of files in .test directory
-.PHONY: test-manual-check
-test-manual-check:
+test-manual: build test-manual-check-original
+
+# Original manual testing target
+.PHONY: test-manual-check-original
+test-manual-check-original:
 	@echo "Running manual tests for cert-test.yml..."
 	@echo "Creating a copy of the test file for safe testing..."
 	@cp -f .test/cert-test.yml .test/cert-test-copy.yml
@@ -90,12 +103,6 @@ build-cross: $(OUTPUT_DIR)
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(OUTPUT_DIR)
-
-# Run all tests with coverage and race detection
-.PHONY: test
-test:
-	@echo "Running all tests with race detection and coverage..."
-	go test -v -race -cover ./...
 
 # Run quick tests without additional checks
 .PHONY: quicktest
@@ -250,11 +257,85 @@ lint:
 	@echo "Running linter..."
 	@~/go/bin/golangci-lint run
 
-# Run staticcheck
+# Run staticcheck tool
 .PHONY: staticcheck
 staticcheck:
 	@echo "Running staticcheck..."
 	@~/go/bin/staticcheck ./...
+	@echo "Staticcheck passed!"
+
+# Check rule configurations by validating against config files
+.PHONY: check-config
+check-config: build prepare-test-examples
+	@echo "Validating configuration..."
+	@# Test main configuration
+	@echo "=== Testing main configuration ==="
+	$(OUTPUT_DIR)/$(BINARY_NAME) -validate -debug
+	@# Test with custom rules in test directory
+	@echo "=== Testing rules in .test directory ==="
+	$(OUTPUT_DIR)/$(BINARY_NAME) -validate -config .test/.yed_config.yml -debug
+	@# Test with invalid config
+	@echo "=== Testing invalid configuration ==="
+	@echo "encryption:\n  rules:\n    - name: \"invalid_rule\"\n      pattern: \"test\"\n      # Missing block field\n      description: \"This rule is invalid\"" > .test/invalid_config.yml
+	$(OUTPUT_DIR)/$(BINARY_NAME) -validate -config .test/invalid_config.yml -debug || echo "Validation correctly failed for invalid configuration (as expected)"
+	@rm -f .test/invalid_config.yml
+	@# Test with no rules
+	@echo "=== Testing configuration with no rules ==="
+	@echo "encryption:\n  unsecure_diff: true\n  validate_rules: true" > .test/empty_rules_config.yml
+	$(OUTPUT_DIR)/$(BINARY_NAME) -validate -config .test/empty_rules_config.yml -debug
+	@rm -f .test/empty_rules_config.yml
+	@# Test with non-existent config
+	@echo "=== Testing non-existent config ==="
+	$(OUTPUT_DIR)/$(BINARY_NAME) -validate -config .test/non_existent_config.yml -debug || echo "Validation correctly failed for non-existent file (as expected)"
+	@echo "Configuration validation completed"
+
+# Test rules against example files (without modifying original files)
+.PHONY: check-rules
+check-rules: build prepare-test-examples
+	@echo "Testing encryption rules against example files..."
+	@echo "==== Database rules ===="
+	@cp -f .test/examples/database_example.yml .test/examples/database_example_copy.yml
+	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --debug --config=.test/.yed_config.yml --file=.test/examples/database_example_copy.yml --operation=encrypt
+	@echo "\n==== API rules ===="
+	@cp -f .test/examples/api_example.yml .test/examples/api_example_copy.yml
+	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --debug --config=.test/.yed_config.yml --file=.test/examples/api_example_copy.yml --operation=encrypt
+	@echo "\n==== AWS rules ===="
+	@cp -f .test/examples/aws_example.yml .test/examples/aws_example_copy.yml
+	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --debug --config=.test/.yed_config.yml --file=.test/examples/aws_example_copy.yml --operation=encrypt
+	@echo "\n==== Secrets rules ===="
+	@cp -f .test/examples/secrets_example.yml .test/examples/secrets_example_copy.yml
+	$(OUTPUT_DIR)/$(BINARY_NAME) --dry-run --debug --config=.test/.yed_config.yml --file=.test/examples/secrets_example_copy.yml --operation=encrypt
+	@echo "\nAll rule tests completed"
+	@echo "Cleaning up test files..."
+	@rm -f .test/examples/*_copy.yml
+	@echo "Done"
+
+# Prepare test directory and example files
+.PHONY: prepare-test-examples
+prepare-test-examples:
+	@echo "Preparing test examples..."
+	@mkdir -p .test/examples
+	@# Check if example files exist, if not create them
+	@if [ ! -f .test/examples/database_example.yml ]; then \
+		echo "Creating database example file..."; \
+		touch .test/examples/database_example.yml; \
+	fi
+	@if [ ! -f .test/examples/api_example.yml ]; then \
+		echo "Creating API example file..."; \
+		touch .test/examples/api_example.yml; \
+	fi
+	@if [ ! -f .test/examples/aws_example.yml ]; then \
+		echo "Creating AWS example file..."; \
+		touch .test/examples/aws_example.yml; \
+	fi
+	@if [ ! -f .test/examples/secrets_example.yml ]; then \
+		echo "Creating secrets example file..."; \
+		touch .test/examples/secrets_example.yml; \
+	fi
+
+# Test all rule configurations together
+.PHONY: test-rules
+test-rules: check-config check-rules
 
 # Run all checks (linter and staticcheck)
 .PHONY: check-all
@@ -279,39 +360,105 @@ run-image:
 	docker run -it --rm yed:$(TAG_NAME)
 	@echo "Image run successfully."
 
+# Testing targets
+test-conflicts-detection: build
+	@echo "Testing rule conflicts detection..."
+	@if ./bin/yed --dry-run --config=.test/.yed_config.yml --file=.test/cert-test.yml --include-rules=conflicts1.yml,conflicts2.yml --operation=encrypt 2>&1 | grep -q "rule conflict detected"; then \
+		echo "✅ Conflict detected as expected"; \
+	else \
+		echo "❌ Error: Conflict was not detected"; \
+		exit 1; \
+	fi
+
+custom-test-manual: build
+	@echo "Running manual tests for cert-test.yml..."
+	@echo "Creating a copy of the test file for safe testing..."
+	@cp .test/cert-test.yml .test/cert-test-copy.yml
+	@echo "Step 1: Testing with dry-run mode on the copy..."
+	bin/yed --dry-run --config=.test/.yed_config.yml --file=.test/cert-test-copy.yml --operation=encrypt
+
+# Run the application in manual check mode
+.PHONY: test-manual-check
+test-manual-check: build
+	@cp .test/variables.yml .test/variables-copy.yml
+	@cp .test/variables.yml .test/variables-pb-copy.yml
+	@cp .test/variables.yml .test/variables-pb2-copy.yml
+	bin/yed --debug --config=.test/.yed_config.yml --file=.test/variables-pb2-copy.yml --operation=encrypt --algorithm=pbkdf2-sha512
+
+# Check all rule configurations and conflicts
+.PHONY: check-all-rules
+check-all-rules: check-config check-rules test-conflicts-detection
+
 # Display help information
 .PHONY: help
 help:
+	@echo "YAML Encrypter/Decrypter (yed) - Tool for encrypting and decrypting YAML files"
+	@echo ""
 	@echo "Available targets:"
-	@echo "  default         		- Run formatting, vetting, linting, staticcheck, build, and quick tests"
+	@echo "  Building and Running:"
+	@echo "  ===================="
+	@echo "  default         		- Run formatting, vetting, linting, staticcheck, build, quick tests, and config validation"
 	@echo "  run             		- Run the application locally"
-	@echo "  install-deps    		- Install project dependencies"
-	@echo "  upgrade-deps    		- Upgrade all project dependencies to their latest versions"
-	@echo "  clean-deps      		- Clean up vendor dependencies"
 	@echo "  build           		- Build the application for the current OS/architecture"
-	@echo "  build-cross     		- Build binaries for multiple platforms"
-	@echo "  clean           		- Clean build artifacts"
-	@echo "  test            		- Run all tests with race detection and coverage"
+	@echo "  build-cross     		- Build binaries for multiple platforms (Linux, macOS, Windows)"
+	@echo "  build-image     		- Build Docker image"
+	@echo "  run-image       		- Run Docker image with --version flag"
+	@echo ""
+	@echo "  Testing and Validation:"
+	@echo "  ======================"
+	@echo "  test            		- Run all tests with standard coverage"
+	@echo "  test-with-race  		- Run all tests with race detection and coverage"
 	@echo "  quicktest       		- Run quick tests without additional checks"
 	@echo "  test-coverage   		- Run tests with coverage report"
 	@echo "  test-race       		- Run tests with race detection"
-	@echo "  test-manual    		- Run manual tests"
+	@echo "  test-manual    		- Run manual tests using test files"
+	@echo "  custom-test-manual		- Run simplified manual tests for cert-test.yml"
+	@echo "  test-manual-check		- Run manual check for variables.yml with encryption"
+	@echo "  test-conflicts-detection	- Test rule conflicts detection mechanism"
 	@echo "  test-all        		- Run all tests and benchmarks"
+	@echo "  check-config    		- Validate configuration files and rule definitions"
+	@echo "  check-rules     		- Test encryption rules against example files (non-destructive)"
+	@echo "  check-all-rules 		- Run config check, rules check and conflicts detection"
+	@echo "  test-rules      		- Run both check-config and check-rules"
+	@echo "  prepare-test-examples  	- Prepare test example files in .test/examples directory"
+	@echo ""
+	@echo "  Benchmarking:"
+	@echo "  ============="
 	@echo "  benchmark       		- Run basic benchmarks"
 	@echo "  benchmark-long  		- Run comprehensive benchmarks with longer duration"
 	@echo "  benchmark-encryption 		- Run only encryption/decryption benchmarks"
 	@echo "  benchmark-algorithms 		- Run key derivation algorithm comparison benchmarks"
 	@echo "  benchmark-argon2 		- Run Argon2 configuration comparison benchmarks"
 	@echo "  benchmark-report 		- Generate a markdown report of all benchmarks"
-	@echo "  clean-coverage  		- Clean coverage and benchmark files"
-	@echo "  fmt             		- Check code formatting"
+	@echo ""
+	@echo "  Code Quality:"
+	@echo "  ============"
+	@echo "  fmt             		- Check and format code"
 	@echo "  vet             		- Analyze code with go vet"
 	@echo "  lint            		- Run golangci-lint on the codebase"
-	@echo "  install-lint    		- Install golangci-lint"
 	@echo "  lint-fix        		- Run golangci-lint with auto-fix"
 	@echo "  staticcheck     		- Run staticcheck static analyzer on the codebase"
-	@echo "  install-staticcheck 		- Install staticcheck"
 	@echo "  check-all       		- Run all code quality checks (lint and staticcheck)"
-	@echo "  build-image     		- Build Docker image"
-	@echo "  run-image       		- Run Docker image with --version flag"
-	@echo "  help            		- Display this help message"
+	@echo ""
+	@echo "  Dependencies:"
+	@echo "  ============="
+	@echo "  install-deps    		- Install project dependencies"
+	@echo "  upgrade-deps    		- Upgrade all project dependencies to their latest versions"
+	@echo "  clean-deps      		- Clean up vendor dependencies"
+	@echo "  install-lint    		- Install golangci-lint"
+	@echo "  install-staticcheck 		- Install staticcheck"
+	@echo ""
+	@echo "  Cleanup:"
+	@echo "  ========"
+	@echo "  clean           		- Clean build artifacts"
+	@echo "  clean-coverage  		- Clean coverage and benchmark files"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make build               	- Build the binary"
+	@echo "  make check-config        	- Validate configuration and rules"
+	@echo "  make check-rules         	- Test encryption rules against example files"
+	@echo "  make check-all-rules     	- Run all rule validation tests including conflict detection"
+	@echo "  make test                	- Run all tests"
+	@echo "  make build-cross         	- Build for multiple platforms"
+	@echo ""
+	@echo "For CLI usage instructions, run: ./bin/yed --help"

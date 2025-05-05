@@ -22,6 +22,12 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 - Secure memory handling with memguard to protect sensitive data in memory.
 - HMAC for validating data integrity.
 - Compression using gzip to optimize data storage.
+- Enhanced rule management system:
+  - Support for including rule files with wildcards and ranges (e.g., `rules[1-3].yml`)
+  - Automatic rule validation to prevent conflicts and duplicates
+  - Configurable rule validation via `validate_rules` setting
+  - Better error messages with line number references for rule conflicts
+  - Support for both absolute and relative paths in rule includes
 - Improved rule matching logic:
   - Proper block-first path evaluation for more accurate rule application
   - Precise control over which paths should be excluded from encryption
@@ -52,6 +58,12 @@ Utility is especially relevant for developers who can't use Hashicorp Vault or S
 - Improved test coverage for processing.go
 
 ## **Recent Updates**
+- **Rule Management**: Enhanced rule system with support for included rule files, wildcards, ranges, and validation
+- **Error Handling**: Improved error messages with path information and rule conflict details
+- **Modular Design**: Refactored rule loading system for better maintainability and extensibility
+- **Rule Processing**: Added support for modular rule files and improved validation of rule configurations
+- **Encryption Improvement**: Updated decryption error handling with better contextual information
+- **Code Quality**: Refactored functions to improve modularity and facilitate better unit testing
 - **Security Enhancement**: Increased minimum password length to 15 characters to comply with NIST SP 800-63B guidelines
 - **UI Improvement**: Reorganized help output for better readability and clarity
 - **Documentation**: Updated all documentation to reflect new security requirements
@@ -275,6 +287,66 @@ When processing multiline YAML content, the tool:
    - Special handling for PEM certificates to maintain correct formatting
 
 This ensures that all forms of multiline content, including certificates and keys, maintain their exact formatting and representation after encryption and decryption cycles.
+
+### **Rule Configuration and Inclusion**
+
+The tool provides a flexible system for configuring encryption/decryption rules with support for rule inclusion from external files:
+
+1. **Basic Rule Configuration**: Rules can be defined directly in the main configuration file:
+   ```yaml
+   encryption:
+     rules:
+       - name: "password_rule"
+         block: "smart_config.auth"
+         pattern: "password"
+         description: "Encrypt password field"
+   ```
+
+2. **Rule File Inclusion**: You can include additional rule files using the `include_rules` directive:
+   ```yaml
+   encryption:
+     include_rules:
+       - "custom_rules/*.yml"       # Include all YAML files in custom_rules directory
+       - "rules/database_rules.yml" # Include a specific rule file
+       - "rules[1-3].yml"           # Include rules1.yml, rules2.yml, and rules3.yml
+   ```
+
+3. **Rule Validation**: Enable or disable rule validation with the `validate_rules` setting:
+   ```yaml
+   encryption:
+     validate_rules: true  # Default is true, set to false to skip validation
+   ```
+
+4. **Rule Resolution**: Rules can be referenced using:
+   - Absolute paths: `/path/to/rules.yml`
+   - Relative paths: `./rules.yml` or `../rules/db.yml` 
+   - Simple filenames: `rules.yml` (resolved relative to main config file)
+   - Glob patterns: `rules/*.yml` (matches all YAML files in the rules directory)
+   - Range patterns: `rules[1-3].yml` (matches rules1.yml, rules2.yml, rules3.yml)
+
+5. **Rule File Formats**: Included rule files can use two formats:
+   - Top-level rules format:
+     ```yaml
+     rules:
+       - name: "rule1"
+         block: "block1"
+         pattern: "pattern1"
+     ```
+   - Full encryption format (same as main config):
+     ```yaml
+     encryption:
+       rules:
+         - name: "rule1"
+           block: "block1"
+           pattern: "pattern1"
+     ```
+
+6. **Rule Validation**: The system validates rules to prevent:
+   - Duplicate rule names across all included files
+   - Conflicting rule configurations (same block/pattern/action)
+   - Missing required fields (block, pattern)
+
+This flexible system allows for better organization of rules across multiple files, making it easier to manage complex configurations.
 
 ### **Key Derivation Algorithms**
 Choose from multiple key derivation algorithms with the `--algorithm` flag:
