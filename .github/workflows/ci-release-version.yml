@@ -54,16 +54,16 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Проверяем, есть ли изменения для коммита
+          # Check if there are changes for commit
           if [[ -z $(git status --porcelain .release-version) ]]; then
             echo "No changes to .release-version, skipping commit"
             exit 0
           fi
           
           git add .release-version
-          git commit -m "Update .release-version with version and build ID [skip ci]"
+          git commit -m "Update .release-version with version and build ID"
           
-          # Настройка URL для использования токена
+          # Configure URL for using token
           REPO_URL="https://x-access-token:${{ secrets.CONTENT_RELEASE }}@github.com/${GITHUB_REPOSITORY}.git"
           git remote set-url origin "${REPO_URL}"
           git push origin HEAD:main
@@ -72,7 +72,7 @@ jobs:
         run: |
           new_tag=$(head -n 1 .release-version)
           
-          # Проверить, существует ли уже такой тег
+          # Check if tag already exists
           if git rev-parse "$new_tag" >/dev/null 2>&1; then
             echo "Tag $new_tag already exists, skipping tag creation"
             exit 0
