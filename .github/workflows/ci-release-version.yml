@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '.release-version'  # Ignore changes to .release-version to prevent circular runs
 
 # Set minimal permissions for the entire workflow
 permissions:
@@ -12,6 +14,8 @@ permissions:
 jobs:
   update-release-version:
     name: Update .release-version with tag and build ID
+    # Skip execution if commit was made by github-actions[bot]
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -26,9 +30,26 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
-          token: ${{ secrets.CONTENT_RELEASE }}
+
+      - name: Check if update is needed
+        id: check_update
+        run: |
+          # Check if .release-version file was recently updated
+          if [[ -f .release-version ]]; then
+            LAST_MODIFIED=$(git log -1 --format=%ct -- .release-version)
+            CURRENT_TIME=$(date +%s)
+            DIFF_SECONDS=$((CURRENT_TIME - LAST_MODIFIED))
+            # If file was updated less than 1 hour ago (3600 seconds), skip update
+            if [[ $DIFF_SECONDS -lt 3600 ]]; then
+              echo "File .release-version was updated recently, skipping"
+              echo "skip=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+          echo "skip=false" >> $GITHUB_OUTPUT
 
       - name: Determine next tag
+        if: steps.check_update.outputs.skip != 'true'
         run: |
           latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
           IFS='.' read -r major minor patch <<< "${latest_tag#v}"
@@ -47,29 +68,21 @@ jobs:
           echo "$new_tag (build ${{ github.run_id }})" >> .release-version
       
       - name: Commit and push .release-version
+        if: steps.check_update.outputs.skip != 'true'
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git add .release-version
-          git commit -m "Update .release-version with version and build ID"
+          git commit -m "Update .release-version with version and build ID [skip ci]"
           git push origin HEAD:main
         env:
           GITHUB_TOKEN: ${{ secrets.CONTENT_RELEASE }}
 
       - name: Create and push new tag
+        if: steps.check_update.outputs.skip != 'true'
         run: |
           new_tag=$(head -n 1 .release-version)
           git tag $new_tag
           git push origin $new_tag
         env:
           GITHUB_TOKEN: ${{ secrets.CONTENT_RELEASE }}
-
-      - name: Trigger Release Workflow
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          curl -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            https://api.github.com/repos/${{ github.repository }}/actions/workflows/ci.yml/dispatches \
-            -d '{"ref":"main"}'
