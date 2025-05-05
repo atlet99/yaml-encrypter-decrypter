@@ -10,7 +10,6 @@ jobs:
     name: Update .release-version with tag and build ID
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       pull-requests: write
     steps:
       - name: Harden Runner
@@ -49,12 +48,16 @@ jobs:
           git add .release-version
           git commit -m "Update .release-version with version and build ID"
           git push origin HEAD:main
+        env:
+          GITHUB_TOKEN: ${{ secrets.CONTENT_RELEASE }}
 
       - name: Create and push new tag
         run: |
           new_tag=$(head -n 1 .release-version)
           git tag $new_tag
           git push origin $new_tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.CONTENT_RELEASE }}
 
       - name: Trigger Release Workflow
         env:
